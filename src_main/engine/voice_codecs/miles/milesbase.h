@@ -13,6 +13,7 @@
 
 // windows.h / platform.h conflicts
 #pragma warning(disable:4005)
+#include <Windows.h>
 #include "Miles/mss.h"
 
 
