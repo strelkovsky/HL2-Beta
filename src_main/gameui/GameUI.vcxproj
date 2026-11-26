@@ -200,7 +200,6 @@
     <None Include="..\lib\public\vgui_controls.lib" />
     <None Include="..\lib\public\tier0.lib" />
     <None Include="..\lib\public\vstdlib.lib" />
-    <None Include="GameUIScheme.res" />
     <None Include="OptionsUI_english.txt" />
     <None Include="OptionsUI_russian.txt" />
   </ItemGroup>
