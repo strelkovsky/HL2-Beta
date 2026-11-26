@@ -463,7 +463,8 @@ bool CServerGameDLL::LevelInit( const char *pMapName, char const *pMapEntities, 
 	}
 	else
 	{
-		gpGlobals->eLoadType = MapLoad_NewGame;
+		const ConVar *background = cvar->FindVar( "map_background_active" );
+		gpGlobals->eLoadType = background && background->GetBool() ? MapLoad_Background : MapLoad_NewGame;
 
 		// This calls serversystem::LevelInitPreEntityAllSystems()
 		MapEntity_ParseAllEntities( pMapEntities );

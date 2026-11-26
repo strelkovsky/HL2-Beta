@@ -533,7 +533,7 @@ void Shader_SetChainTextureState(
 	int surfID, 
 	IClientEntity* pBaseEntity )
 {
-	materialSystemInterface->Bind( MSurf_TexInfo( surfID )->material, pBaseEntity );
+	materialSystemInterface->Bind( MSurf_TexInfo( surfID )->material, pBaseEntity ? pBaseEntity->GetClientRenderable() : NULL );
 	Shader_SetChainLightmapState( surfID );
 }
 

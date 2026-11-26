@@ -17,6 +17,7 @@
 class CTaskButton;
 class CBackgroundMenuButton;
 class CGameMenu;
+class CReleaseGameTitle;
 
 //-----------------------------------------------------------------------------
 // Purpose: Win9X-type taskbar for in the game
@@ -38,6 +39,7 @@ public:
 
 	// handles gameUI being shown
 	void OnGameUIActivated();
+	void SetStartupMenuAlpha( int alpha );
 
 	// game dialogs
 	void OnOpenNewGameDialog();
@@ -76,6 +78,7 @@ private:
 	CBackgroundMenuButton *m_pPlatformMenuButton;
 	CGameMenu *m_pPlatformMenu;
 	CGameMenu *m_pGameMenu;
+	CReleaseGameTitle *m_pGameTitle;
 	bool m_bShowPlatformMenu;
 	bool m_bPlatformMenuInitialized;
 	int m_iGameMenuInset;

@@ -64,6 +64,35 @@ extern IBaseUI *baseuifuncs;
 
 #define MENU_ITEM_VISIBILITY_RATE 0.05f
 
+// Release title uses a custom font and shares the menu fade.
+class CReleaseGameTitle : public vgui::Label
+{
+public:
+	CReleaseGameTitle( Panel *parent ) : vgui::Label( parent, "GameTitle", "HALF-LIFE'" ), m_iAlpha( 255 )
+	{
+		SetProportional( true );
+		SetMouseInputEnabled( false );
+		SetKeyBoardInputEnabled( false );
+	}
+	virtual void ApplySchemeSettings( IScheme *pScheme )
+	{
+		vgui::Label::ApplySchemeSettings( pScheme );
+		SetFont( pScheme->GetFont( "ReleaseTitle", true ) );
+		SetPaintBackgroundEnabled( false );
+		SetFgColor( Color( 255, 255, 255, m_iAlpha ) );
+		int wide, tall;
+		surface()->GetTextSize( GetFont(), L"HALF-LIFE'", wide, tall );
+		SetSize( wide + 4, tall + 4 );
+	}
+	void SetTitleAlpha( int alpha )
+	{
+		m_iAlpha = alpha;
+		SetFgColor( Color( 255, 255, 255, alpha ) );
+	}
+private:
+	int m_iAlpha;
+};
+
 //-----------------------------------------------------------------------------
 // Purpose: Transparent menu item designed to sit on the background ingame
 //-----------------------------------------------------------------------------
@@ -105,6 +134,26 @@ public:
 		{
 			SetContentAlignment(Label::a_east);
 		}
+	}
+
+	void SetStartupAlpha( int alpha )
+	{
+		IScheme *pScheme = scheme()->GetIScheme( GetScheme() );
+		if ( !pScheme )
+			return;
+
+		const Color transparent( 0, 0, 0, 0 );
+		Color normal = GetSchemeColor( "InGameDesktop/MenuColor", pScheme );
+		Color armed = GetSchemeColor( "InGameDesktop/ArmedMenuColor", pScheme );
+		Color depressed = GetSchemeColor( "InGameDesktop/DepressedMenuColor", pScheme );
+		normal[3] = normal[3] * alpha / 255;
+		armed[3] = armed[3] * alpha / 255;
+		depressed[3] = depressed[3] * alpha / 255;
+		SetDefaultColor( normal, transparent );
+		SetArmedColor( armed, transparent );
+		SetDepressedColor( depressed, transparent );
+		SetMouseInputEnabled( alpha == 255 );
+		SetKeyBoardInputEnabled( alpha == 255 );
 	}
 
 	void SetRightAlignedText(bool state)
@@ -263,6 +312,16 @@ public:
 		}
 	}
 
+	void SetStartupAlpha( int alpha )
+	{
+		for ( int i = 0; i < GetChildCount(); ++i )
+		{
+			CGameMenuItem *item = dynamic_cast<CGameMenuItem *>( GetChild( i ) );
+			if ( item )
+				item->SetStartupAlpha( alpha );
+		}
+	}
+
 	void StartMenuOpeningAnimation()
 	{
 		m_bRestartListUpdate = true;
@@ -330,6 +389,18 @@ private:
 CTaskbar::CTaskbar(Panel *parent, const char *panelName) : EditablePanel(parent, panelName)
 {
 	m_iGameMenuInset = 24;
+	m_pGameTitle = NULL;
+	const char *gamePath = engine->GetGameDirectory();
+	const char *gameName = strrchr( gamePath, '/' );
+	const char *backslash = strrchr( gamePath, '\\' );
+	if ( !gameName || ( backslash && backslash > gameName ) ) gameName = backslash;
+	gameName = gameName ? gameName + 1 : gamePath;
+	if ( !stricmp( gameName, "hl2" ) )
+	{
+		m_pGameTitle = new CReleaseGameTitle( parent );
+		m_pGameTitle->SetMouseInputEnabled( false );
+		m_pGameTitle->SetKeyBoardInputEnabled( false );
+	}
 	m_bPlatformMenuInitialized = false;
 	m_bShowPlatformMenu = false;
 	if (CommandLine()->FindParm("-steam") || CommandLine()->FindParm("-showplatform"))
@@ -339,6 +410,8 @@ CTaskbar::CTaskbar(Panel *parent, const char *panelName) : EditablePanel(parent,
 
 	m_pGameMenuButton = new CBackgroundMenuButton(this, "GameMenuButton");
 	m_pGameMenuButton->SetCommand("OpenGameMenu");
+	if ( m_pGameTitle )
+		m_pGameMenuButton->SetVisible( false );
 	m_pPlatformMenuButton = new CBackgroundMenuButton(this, "PlatformMenuButton");
 	m_pPlatformMenuButton->SetCommand("OpenPlatformMenu");
 
@@ -415,7 +488,8 @@ void CTaskbar::UpdateGameMenus()
 	// check our current state
 	bool isInGame = false, isMulti = false;
 	const char *lvl = engine->GetLevelName();
-	if (lvl && *lvl)
+	const ConVar *background = cvar->FindVar( "map_background_active" );
+	if (lvl && *lvl && !( background && background->GetBool() ))
 	{
 		isInGame = true;
 		if (engine->GetMaxClients() > 1)
@@ -428,7 +502,18 @@ void CTaskbar::UpdateGameMenus()
 	m_pGameMenu->UpdateMenuItemState(isInGame, isMulti);
 
 	// position the menu
-	m_pGameMenu->SetPos(m_iGameMenuInset, tall - m_pGameMenu->GetTall() - BLACK_BAR_SIZE);
+	if ( m_pGameTitle )
+	{
+		const int x = scheme()->GetProportionalScaledValue( 76 );
+		const int bottomInset = scheme()->GetProportionalScaledValue( 64 );
+		int y = scheme()->GetProportionalScaledValue( 240 );
+		if ( y + m_pGameMenu->GetTall() + bottomInset > tall )
+			y = tall - m_pGameMenu->GetTall() - bottomInset;
+		m_pGameMenu->SetPos( x, y );
+		m_pGameTitle->SetPos( x, y - scheme()->GetProportionalScaledValue( 56 ) );
+	}
+	else
+		m_pGameMenu->SetPos(m_iGameMenuInset, tall - m_pGameMenu->GetTall() - BLACK_BAR_SIZE);
 	m_pGameMenu->SetVisible(true);
 }
 
@@ -676,6 +761,16 @@ void CTaskbar::OnActivateModule(int moduleIndex)
 //-----------------------------------------------------------------------------
 // Purpose: Animates menus on gameUI being shown
 //-----------------------------------------------------------------------------
+void CTaskbar::SetStartupMenuAlpha( int alpha )
+{
+	if ( m_pGameTitle )
+		m_pGameTitle->SetTitleAlpha( alpha );
+	if ( m_pGameMenu )
+		m_pGameMenu->SetStartupAlpha( alpha );
+	if ( m_pPlatformMenu )
+		m_pPlatformMenu->SetStartupAlpha( alpha );
+}
+
 void CTaskbar::OnGameUIActivated()
 {
 	if (m_pGameMenu)
@@ -706,6 +801,11 @@ void CTaskbar::OnCommand(const char *command)
 		{
 			PostMessage(m_pPlatformMenu, new KeyValues("Command", "command", "Open"));
 		}
+	}
+	else if (!stricmp(command, "OpenFriendsDialog"))
+	{
+		if ( !g_VModuleLoader.ActivateModule( "Friends" ) )
+			Msg( "Friends are unavailable: the Steam Friends module is not loaded.\n" );
 	}
 	else if (!stricmp(command, "OpenPlayerListDialog"))
 	{

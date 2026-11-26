@@ -48,6 +48,8 @@ void VideoMode_ChangeFullscreenMode( bool fullscreen );
 extern qboolean	g_bInEditMode;
 #endif
 
+ConVar map_background_active( "map_background_active", "0", 0 );
+
 extern qboolean allow_cheats;
 extern ConVar	pausable;
 
@@ -324,7 +326,7 @@ void Host_Ping_f (void)
 // Input  : editmode - 
 //-----------------------------------------------------------------------------
 extern void GetPlatformMapPath( const char *pMapPath, char *pPlatformMapPath, int maxLength );
-void Host_Map_Helper( bool editmode )
+void Host_Map_Helper( bool editmode, bool background = false )
 {
 	int		i;
 	char	name[MAX_QPATH];
@@ -371,7 +373,7 @@ void Host_Map_Helper( bool editmode )
 		COM_CheckAuthenticationType();
 	}
 
-	// JAY: UNDONE: Remove this?
+	map_background_active.SetValue( background ? 1 : 0 );
 	HostState_NewGame( name );
 
 	// If any test scripts are running, make them wait until the map is loaded.
@@ -390,6 +392,11 @@ command from the console.  Active clients are kicked off.
 void Host_Map_f (void)
 {
 	Host_Map_Helper( false );
+}
+
+void Host_BackgroundMap_f( void )
+{
+	Host_Map_Helper( false, true );
 }
 
 /* 
@@ -536,6 +543,7 @@ Kill the client and any local server.
 */
 void Host_Disconnect_f (void)
 {
+	map_background_active.SetValue( 0 );
 	Host_Disconnect();
 }
 

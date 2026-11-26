@@ -7,6 +7,7 @@
 
 // Imported from other .cpp files
 void Host_Map_f (void);
+void Host_BackgroundMap_f (void);
 
 //-----------------------------------------------------------------------------
 // Purpose: For each map, stores when the map last changed on disk and whether
@@ -626,4 +627,5 @@ static ConCommand demomap("demomap", Host_DemoMap_f, "demomap mapname demoname: 
 #ifndef BENCHMARK
 static ConCommand maps("maps", Host_Maps_f, "Displays list of maps." );
 static ConCommand map("map", Host_Map_f, "Start playing on specified map.", 0, Host_Map_f_CompletionFunc );
+static ConCommand map_background("map_background", Host_BackgroundMap_f, "Load a map as the menu background.", 0, Host_Map_f_CompletionFunc );
 #endif

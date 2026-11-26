@@ -403,6 +403,10 @@ int __stdcall SendShutdownMsgFunc(WHANDLE hwnd, int lparam)
 //-----------------------------------------------------------------------------
 // Purpose: Called to setup the game UI
 //-----------------------------------------------------------------------------
+static bool g_bBackgroundMapPending = false;
+static bool g_bStartupBackgroundLoading = false;
+static double g_flStartupFadeStart = -1.0;
+
 void CGameUI::Start(struct cl_enginefuncs_s *engineFuncs, int interfaceVersion, IBaseSystem *system)
 {
 //	TRACE_FUNCTION("CGameUI::Start");
@@ -568,6 +572,24 @@ void CGameUI::Start(struct cl_enginefuncs_s *engineFuncs, int interfaceVersion, 
 	}
 
 	staticPanel->SetBackgroundRenderState(CBasePanel::BACKGROUND_DESKTOPIMAGE);
+
+	const char *gamePath = engine->GetGameDirectory();
+	const char *gameName = strrchr( gamePath, '/' );
+	if ( !gameName )
+		gameName = strrchr( gamePath, '\\' );
+	gameName = gameName ? gameName + 1 : gamePath;
+	if ( !stricmp( gameName, "hl2" ) &&
+		!CommandLine()->FindParm( "+map" ) &&
+		!CommandLine()->FindParm( "+map_background" ) &&
+		!CommandLine()->FindParm( "+connect" ) &&
+		!CommandLine()->FindParm( "+load" ) &&
+		vgui::filesystem()->FileExists( "maps/background01.bsp" ) )
+	{
+		g_bBackgroundMapPending = true;
+		g_bStartupBackgroundLoading = true;
+		staticPanel->SetStartupLoadingAlpha( 255 );
+		g_pTaskbar->SetStartupMenuAlpha( 0 );
+	}
 
 	// start mp3 playing
 	//engine->pfnClientCmd("mp3 loop media/gamestartup.mp3\n");
@@ -781,13 +803,17 @@ int CGameUI::ActivateGameUI()
 	staticPanel->SetVisible(true);
 	g_pTaskbar->SetVisible(true);
 
-	// pause the game
-	engine->ClientCmd("setpause");
+	// Background levels continue running while the menu is open.
+	const ConVar *background = cvar->FindVar( "map_background_active" );
+	if ( !background || !background->GetBool() )
+		engine->ClientCmd("setpause");
 
 	// notify taskbar
 	if (g_pTaskbar)
 	{
 		g_pTaskbar->OnGameUIActivated();
+		if ( g_bStartupBackgroundLoading )
+			g_pTaskbar->SetStartupMenuAlpha( 0 );
 	}
 
 	// return that things have been handled
@@ -815,6 +841,9 @@ int CGameUI::ActivateDemoUI()
 //-----------------------------------------------------------------------------
 void CGameUI::HideGameUI()
 {
+	const ConVar *background = cvar->FindVar( "map_background_active" );
+	if ( background && background->GetBool() )
+		return;
 //	TRACE_FUNCTION("CGameUI::HideGameUI");
 	// we can't hide the UI if we're not in a level
 	const char *levelName = engine->GetLevelName();
@@ -842,6 +871,36 @@ int CGameUI::HasExclusiveInput()
 //-----------------------------------------------------------------------------
 void CGameUI::RunFrame()
 {
+	if ( g_bBackgroundMapPending )
+	{
+		g_bBackgroundMapPending = false;
+		engine->ClientCmd( "map_background background01\n" );
+	}
+
+	if ( g_bStartupBackgroundLoading )
+	{
+		const ConVar *background = cvar->FindVar( "map_background_active" );
+		if ( g_flStartupFadeStart < 0 && background && background->GetBool() && engine->IsInGame() && !g_hLoadingDialog.Get() )
+			g_flStartupFadeStart = vgui::system()->GetCurrentTime();
+
+		if ( g_flStartupFadeStart >= 0 )
+		{
+			const double elapsed = vgui::system()->GetCurrentTime() - g_flStartupFadeStart;
+			const int alpha = elapsed >= 3.0 ? 255 : static_cast<int>( elapsed * 255.0 / 3.0 );
+			staticPanel->SetStartupLoadingAlpha( 255 - alpha );
+			g_pTaskbar->SetStartupMenuAlpha( alpha );
+			if ( alpha == 255 )
+			{
+				staticPanel->SetStartupLoadingAlpha( -1 );
+				g_bStartupBackgroundLoading = false;
+			}
+		}
+		else
+		{
+			g_pTaskbar->SetStartupMenuAlpha( 0 );
+		}
+	}
+
 	// resize the background panel to the screen size
 	int wide, tall;
 	vgui::surface()->GetScreenSize(wide, tall);
@@ -1023,6 +1082,13 @@ int CGameUI::ContinueProgressBar(int progressPoint, float progressFraction)
 //-----------------------------------------------------------------------------
 void CGameUI::StopProgressBar(bool bError, const char *failureReason, const char *extendedReason)
 {
+	if ( bError && g_bStartupBackgroundLoading )
+	{
+		g_bStartupBackgroundLoading = false;
+		g_flStartupFadeStart = -1.0;
+		staticPanel->SetStartupLoadingAlpha( -1 );
+		g_pTaskbar->SetStartupMenuAlpha( 255 );
+	}
 	if (!g_hLoadingDialog.Get() && bError)
 	{
 		g_hLoadingDialog = new CLoadingDialog(staticPanel);

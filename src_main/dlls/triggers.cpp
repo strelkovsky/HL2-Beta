@@ -1727,6 +1727,8 @@ void CAI_ChangeHintGroup::InputActivate( inputdata_t &inputdata )
 #define SF_CAMERA_PLAYER_POSITION	1
 #define SF_CAMERA_PLAYER_TARGET		2
 #define SF_CAMERA_PLAYER_TAKECONTROL 4
+#define SF_CAMERA_PLAYER_INFINITE_WAIT 8
+#define SF_CAMERA_PLAYER_SNAP_TO 16
 
 class CTriggerCamera : public CBaseEntity
 {
@@ -1738,6 +1740,9 @@ public:
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
 	void FollowTarget( void );
 	void Move(void);
+	void InputEnable( inputdata_t &inputdata );
+	void InputDisable( inputdata_t &inputdata );
+	void WaitForPlayer();
 
 	// Always transmit to clients so they know where to move the view to
 	virtual bool ShouldTransmit( const edict_t *recipient, const void *pvs, int clientArea )
@@ -1766,6 +1771,7 @@ private:
 	COutputEvent m_OnEndFollow;
 };
 LINK_ENTITY_TO_CLASS( trigger_camera, CTriggerCamera );
+LINK_ENTITY_TO_CLASS( point_viewcontrol, CTriggerCamera );
 
 BEGIN_DATADESC( CTriggerCamera )
 
@@ -1786,6 +1792,9 @@ BEGIN_DATADESC( CTriggerCamera )
 
 	// Function Pointers
 	DEFINE_FUNCTION( CTriggerCamera, FollowTarget ),
+	DEFINE_FUNCTION( CTriggerCamera, WaitForPlayer ),
+	DEFINE_INPUTFUNC( CTriggerCamera, FIELD_VOID, "Enable", InputEnable ),
+	DEFINE_INPUTFUNC( CTriggerCamera, FIELD_VOID, "Disable", InputDisable ),
 	DEFINE_OUTPUT( CTriggerCamera, m_OnEndFollow, "OnEndFollow" ),
 
 END_DATADESC()
@@ -1838,6 +1847,38 @@ bool CTriggerCamera::KeyValue( const char *szKeyName, const char *szValue )
 
 
 
+void CTriggerCamera::InputEnable( inputdata_t &inputdata )
+{
+	CBaseEntity *player = inputdata.pActivator;
+	if ( !player || !player->IsPlayer() )
+		player = CBaseEntity::Instance( engine->PEntityOfEntIndex( 1 ) );
+
+	if ( !player || !player->IsPlayer() )
+	{
+		SetThink( &CTriggerCamera::WaitForPlayer );
+		SetNextThink( gpGlobals->curtime + 0.1f );
+		return;
+	}
+	Use( player, this, USE_ON, 0 );
+}
+
+void CTriggerCamera::WaitForPlayer()
+{
+	CBaseEntity *player = CBaseEntity::Instance( engine->PEntityOfEntIndex( 1 ) );
+	if ( player && player->IsPlayer() )
+		Use( player, this, USE_ON, 0 );
+	else
+		SetNextThink( gpGlobals->curtime + 0.1f );
+}
+
+void CTriggerCamera::InputDisable( inputdata_t &inputdata )
+{
+	if ( m_state )
+		Use( inputdata.pActivator, this, USE_OFF, 0 );
+	else
+		SetThink( NULL );
+}
+
 void CTriggerCamera::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value )
 {
 	if ( !ShouldToggle( useType, m_state ) )
@@ -1855,6 +1896,11 @@ void CTriggerCamera::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 		pActivator = CBaseEntity::Instance(engine->PEntityOfEntIndex( 1 ));
 	}
 		
+	if ( !pActivator || !pActivator->IsPlayer() )
+	{
+		m_state = 0;
+		return;
+	}
 	m_hPlayer = pActivator;
 
 	m_flReturnTime = gpGlobals->curtime + m_flWait;
@@ -1931,7 +1977,7 @@ void CTriggerCamera::FollowTarget( )
 	if (m_hPlayer == NULL)
 		return;
 
-	if (m_hTarget == NULL || m_flReturnTime < gpGlobals->curtime)
+	if (m_hTarget == NULL || !m_state || (!HasSpawnFlags(SF_CAMERA_PLAYER_INFINITE_WAIT) && m_flReturnTime < gpGlobals->curtime))
 	{
 		if (m_hPlayer->IsAlive( ))
 		{
@@ -1962,6 +2008,12 @@ void CTriggerCamera::FollowTarget( )
 		angles.y += 360;
 
 	SetLocalAngles( angles );
+	if ( HasSpawnFlags( SF_CAMERA_PLAYER_SNAP_TO ) )
+	{
+		SetLocalAngles( vecGoal );
+		SetLocalAngularVelocity( vec3_angle );
+		angles = vecGoal;
+	}
 
 	float dx = vecGoal.x - GetLocalAngles().x;
 	float dy = vecGoal.y - GetLocalAngles().y;

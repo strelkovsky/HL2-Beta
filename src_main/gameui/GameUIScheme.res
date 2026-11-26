@@ -64,13 +64,13 @@
 
         "InGameDesktop"
         {
-            "MenuColor"              "Text.Primary"
-            "ArmedMenuColor"         "Accent"
-            "DepressedMenuColor"     "Text.Primary"
+            "MenuColor"              "255 255 255 255"
+            "ArmedMenuColor"         "200 200 200 255"
+            "DepressedMenuColor"     "192 186 80 255"
             "GameMenuInset"          "36"
-            "MenuItemHeight"         "32"
+            "MenuItemHeight"         "30"
             "MenuMinimumWidth"       "196"
-            "MenuTextInset"          "8"
+            "MenuTextInset"          "0"
             "MenuItemVisibilityRate" "0.035"
         }
     }
@@ -99,16 +99,32 @@
             }
         }
 
+        "ReleaseTitle"
+        {
+            "1"
+            {
+                "name" "HalfLife2"
+                "tall" "46"
+                "weight" "0"
+                "antialias" "1"
+            }
+        }
+
         "MenuLarge"
         {
             "1"
             {
-                "name" "Segoe UI"
-                "tall" "19"
+                "name" "Verdana"
+                "tall" "16"
                 "weight" "600"
                 "antialias" "1"
             }
         }
+    }
+
+    "CustomFontFiles"
+    {
+        "1" "resource/HALFLIFE2.ttf"
     }
 
     "Borders"

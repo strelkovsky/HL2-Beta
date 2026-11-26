@@ -16,6 +16,8 @@
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+class CChapterCard;
+
 class CNewGameDialog : public CTaskFrame
 {
 public:
@@ -24,9 +26,17 @@ public:
 
 	virtual void OnCommand( const char *command );
 	virtual void OnClose();
+	void SelectChapter( int index, bool play );
 protected:
 	typedef vgui::Frame BaseClass;
 
+	bool m_bChapterMode;
+	int m_nChapterCount, m_nSelectedChapter, m_nChapterPage;
+	char m_chapters[32][32];
+	CChapterCard *m_cards[3];
+	vgui::Button *m_pChapterPlay, *m_pChapterNext, *m_pChapterPrev;
+	void CreateChapterDialog();
+	void RefreshChapters();
 	int				m_nPlayMode;
 
 	vgui::RadioButton	*m_pTraining;

@@ -458,6 +458,9 @@ void CBaseUI::CallEngineSurfaceProc(void *hwnd, unsigned int msg, unsigned int w
 //-----------------------------------------------------------------------------
 void CBaseUI::HideGameUI()
 {
+	extern ConVar map_background_active;
+	if ( map_background_active.GetBool() )
+		return;
 
 	staticGameUIFuncs->HideGameUI();
 //	staticGameConsole->Hide();

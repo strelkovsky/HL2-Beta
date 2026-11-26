@@ -32,6 +32,9 @@ using namespace vgui;
 CBasePanel::CBasePanel() : Panel(NULL, "BasePanel")
 {
 	m_eBackgroundState = BACKGROUND_NONE;
+	m_nStartupLoadingAlpha = -1;
+	m_nStartupLoadingTexture = -1;
+	m_nStartupBackgroundTexture = -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -50,9 +53,28 @@ void CBasePanel::OnChildAdded(VPANEL child)
 //-----------------------------------------------------------------------------
 void CBasePanel::PaintBackground()
 {
+	if ( m_nStartupLoadingAlpha >= 0 && m_nStartupLoadingTexture >= 0 )
+	{
+		int wide, tall;
+		GetSize( wide, tall );
+		surface()->DrawSetColor( 255, 255, 255, m_nStartupLoadingAlpha );
+		surface()->DrawSetTexture( m_nStartupBackgroundTexture );
+		surface()->DrawTexturedRect( 0, 0, wide, tall );
+
+		int textureWide, textureTall;
+		surface()->DrawGetTextureSize( m_nStartupLoadingTexture, textureWide, textureTall );
+		surface()->DrawSetColor( 255, 255, 255, m_nStartupLoadingAlpha );
+		surface()->DrawSetTexture( m_nStartupLoadingTexture );
+		surface()->DrawTexturedRect( wide - textureWide, tall - textureTall, wide, tall );
+		return;
+	}
+
 	const char *levelName = engine->GetLevelName();
 	if (levelName && levelName[0])
 	{
+		const ConVar *background = cvar->FindVar( "map_background_active" );
+		if ( background && background->GetBool() )
+			return;
 		// render filled background in game
 		int swide, stall;
 		surface()->GetScreenSize(swide, stall);
@@ -131,6 +153,22 @@ void CBasePanel::ApplySchemeSettings(IScheme *pScheme)
 //-----------------------------------------------------------------------------
 // Purpose: sets how the game background should render
 //-----------------------------------------------------------------------------
+void CBasePanel::SetStartupLoadingAlpha( int alpha )
+{
+	if ( alpha >= 0 && m_nStartupLoadingTexture < 0 )
+	{
+		int wide, tall;
+		surface()->GetScreenSize( wide, tall );
+		m_nStartupLoadingTexture = surface()->CreateNewTextureID();
+		surface()->DrawSetTextureFile( m_nStartupLoadingTexture, "console/startup_loading", false, false );
+		m_nStartupBackgroundTexture = surface()->CreateNewTextureID();
+		surface()->DrawSetTextureFile( m_nStartupBackgroundTexture,
+			wide * 10 >= tall * 16 ? "console/background01_widescreen" : "console/background01", false, false );
+	}
+	m_nStartupLoadingAlpha = alpha;
+	Repaint();
+}
+
 void CBasePanel::SetBackgroundRenderState(EBackgroundState state)
 {
 	m_eBackgroundState = state;

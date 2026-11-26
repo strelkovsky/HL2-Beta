@@ -35,11 +35,15 @@ public:
 	};
 
 	void SetBackgroundRenderState(EBackgroundState state);
+	void SetStartupLoadingAlpha( int alpha );
 
 private:
 	void DrawBackgroundImage();
 
 	EBackgroundState m_eBackgroundState;
+	int m_nStartupLoadingAlpha;
+	int m_nStartupLoadingTexture;
+	int m_nStartupBackgroundTexture;
 	
 	enum { BACKGROUND_ROWS = 3, BACKGROUND_COLUMNS = 4 };
 	struct bimage_t
