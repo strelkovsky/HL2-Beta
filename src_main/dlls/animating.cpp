@@ -106,6 +106,7 @@ END_SEND_TABLE()
 
 
 CBaseAnimating::CBaseAnimating()
+	: m_flPoseParameter()
 {
 #ifdef _DEBUG
 	m_vecForce.GetForModify().Init();
