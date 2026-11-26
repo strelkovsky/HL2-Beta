@@ -40,12 +40,14 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX6_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -67,6 +69,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
     </Link>
