@@ -612,6 +612,10 @@ void CParticleEffectBinding::RenderEnd( VMatrix &tempModel, VMatrix &tempView )
 
 void CParticleEffectBinding::DoBucketSort( CEffectMaterial *pMaterial, float *zCoords, int nZCoords, float minZ, float maxZ )
 {
+	// Equal-depth particles are already sorted; avoid dividing by zero.
+	if ( nZCoords <= 1 || !( maxZ > minZ ) )
+		return;
+
 	// Do an O(N) bucket sort. This helps the sort when there are lots of particles.
 	#define NUM_BUCKETS	32
 	Particle buckets[NUM_BUCKETS];
@@ -634,6 +638,9 @@ void CParticleEffectBinding::DoBucketSort( CEffectMaterial *pMaterial, float *zC
 
 		// Add it to the appropriate bucket.
 		float flPercent = (zCoords[iCurParticle] - minZ) / (maxZ - minZ);
+		// Also handles non-finite depths without indexing outside the bucket array.
+		if ( !(flPercent >= 0.0f) ) flPercent = 0.0f;
+		else if ( flPercent > 1.0f ) flPercent = 1.0f;
 		int iAddBucket = (int)( flPercent * (NUM_BUCKETS - 0.0001f) );
 		iAddBucket = NUM_BUCKETS - iAddBucket - 1;
 		Assert( iAddBucket >= 0 && iAddBucket < NUM_BUCKETS );
