@@ -18,6 +18,7 @@
 
 #include "checksum_engine.h"
 #include "bspfile.h"
+#include "modelloader.h"
 #include "filesystem.h"
 #include "filesystem_engine.h"
 
@@ -147,6 +148,7 @@ bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 	int nBytesRead;
 	dheader_t	header;
 	int nSize;
+	int fileSize;
 	lump_t *curLump;
 	long startOfs;
 
@@ -155,9 +157,10 @@ bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 		return false;
 
 	startOfs = g_pFileSystem->Tell(fp);
+	fileSize = nSize;
 
 	// Don't CRC the header.
-	if (g_pFileSystem->Read(&header, sizeof(dheader_t), fp) == 0)
+	if (g_pFileSystem->Read(&header, sizeof(dheader_t), fp) != sizeof(dheader_t))
 	{
 		Con_Printf("Could not read BSP header for map [%s].\n", pszFileName);
 		g_pFileSystem->Close(fp);
@@ -165,10 +168,10 @@ bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 	}
 
 	i = LittleLong (header.version);
-	if ( i != BSPVERSION )
+	if ( LittleLong( header.ident ) != IDBSPHEADER || !CMapLoadHelper::IsSupportedMapVersion( i ) )
 	{
 		g_pFileSystem->Close(fp);
-		Con_Printf("Map [%s] has incorrect BSP version (%i should be %i).\n", pszFileName, i, BSPVERSION);
+		Con_Printf("Map [%s] has an invalid BSP header or unsupported version %i.\n", pszFileName, i);
 		return false;
 	}
 
@@ -179,9 +182,16 @@ bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 			continue;
 
 		curLump = &header.lumps[l];
-		nSize = curLump->filelen;
-
-		g_pFileSystem->Seek( fp, startOfs + curLump->fileofs, FILESYSTEM_SEEK_HEAD );
+		nSize = LittleLong( curLump->filelen );
+		const int offset = LittleLong( curLump->fileofs );
+		if ( nSize == 0 )
+			continue;
+		if ( nSize < 0 || offset < sizeof( dheader_t ) || offset > fileSize || nSize > fileSize - offset )
+		{
+			g_pFileSystem->Close( fp );
+			return false;
+		}
+		g_pFileSystem->Seek( fp, startOfs + offset, FILESYSTEM_SEEK_HEAD );
 
 		// Now read in 1K chunks
 		while (nSize > 0)
@@ -199,7 +209,7 @@ bool CRC_MapFile(CRC32_t *crcvalue, const char *pszFileName)
 			}
 
 			// If there was a disk error, indicate failure.
-			if ( !g_pFileSystem->IsOk(fp) )
+			if ( nBytesRead <= 0 || !g_pFileSystem->IsOk(fp) )
 			{
 				if ( fp )
 					g_pFileSystem->Close(fp);

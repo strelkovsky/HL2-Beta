@@ -2154,80 +2154,79 @@ int CMaterial::ShaderParamCount() const
 //-----------------------------------------------------------------------------
 // VMT parser
 //-----------------------------------------------------------------------------
-static void InsertKeyValues( KeyValues& dst, KeyValues& src )
+static void ApplyMaterialPatch( KeyValues &destination, KeyValues &source, bool replaceOnly )
 {
-	KeyValues *pSrcVar = src.GetFirstSubKey();
-	while( pSrcVar )
+	for ( KeyValues *entry = source.GetFirstSubKey(); entry; entry = entry->GetNextKey() )
 	{
-		switch( pSrcVar->GetDataType() )
+		KeyValues *target = destination.FindKey( entry->GetName() );
+		if ( !target && replaceOnly )
+			continue;
+
+		if ( entry->GetDataType() == KeyValues::TYPE_NONE )
+		{
+			if ( !target )
+				target = destination.FindKey( entry->GetName(), true );
+			if ( target->GetDataType() == KeyValues::TYPE_NONE )
+				ApplyMaterialPatch( *target, *entry, replaceOnly );
+			continue;
+		}
+
+		switch ( entry->GetDataType() )
 		{
 		case KeyValues::TYPE_STRING:
-			dst.SetString( pSrcVar->GetName(), pSrcVar->GetString() );
+			destination.SetString( entry->GetName(), entry->GetString() );
 			break;
 		case KeyValues::TYPE_INT:
-			dst.SetInt( pSrcVar->GetName(), pSrcVar->GetInt() );
+			destination.SetInt( entry->GetName(), entry->GetInt() );
 			break;
 		case KeyValues::TYPE_FLOAT:
-			dst.SetFloat( pSrcVar->GetName(), pSrcVar->GetFloat() );
+			destination.SetFloat( entry->GetName(), entry->GetFloat() );
 			break;
 		case KeyValues::TYPE_PTR:
-			dst.SetPtr( pSrcVar->GetName(), pSrcVar->GetPtr() );
+			destination.SetPtr( entry->GetName(), entry->GetPtr() );
+			break;
+		default:
 			break;
 		}
-		pSrcVar = pSrcVar->GetNextKey();
 	}
 }
 
-static void WriteKeyValuesToFile( const char *pFileName, KeyValues& keyValues )
+static bool ExpandPatchFile( KeyValues &keyValues, int depth = 0 )
 {
-	keyValues.SaveToFile( g_pFileSystem, pFileName );
-}
+	if ( stricmp( keyValues.GetName(), "patch" ) )
+		return true;
 
-static void ExpandPatchFile( KeyValues& keyValues )
-{
-	int count = 0;
-	while( count < 10 && stricmp( keyValues.GetName(), "patch" ) == 0 )
+	if ( depth >= 10 )
 	{
-//		WriteKeyValuesToFile( "patch.txt", keyValues );
-		const char *pIncludeFileName = keyValues.GetString( "include" );
-		if( pIncludeFileName )
-		{
-			KeyValues * includeKeyValues = new KeyValues( "vmt" );
-			char *pFileName = ( char * )_alloca( strlen( pIncludeFileName ) + 
-												 strlen( "materials/.vmt" ) + 1 );
-			sprintf( pFileName, "%s", pIncludeFileName );
-			bool success = includeKeyValues->LoadFromFile( g_pFileSystem, pFileName );
-			if( success )
-			{
-//				WriteKeyValuesToFile( "include.txt", includeKeyValues );
-				KeyValues *pInsertSection = keyValues.FindKey( "insert" );
-//				WriteKeyValuesToFile( "insertsection.txt", *pInsertSection );
-				if( pInsertSection )
-				{
-//					WriteKeyValuesToFile( "before.txt", includeKeyValues );
-					InsertKeyValues( *includeKeyValues, *pInsertSection );
-//					WriteKeyValuesToFile( "after.txt", includeKeyValues );
-					keyValues = *includeKeyValues;
-				}
-				includeKeyValues->deleteThis();
-				// Could add other commands here, like "delete", "rename", etc.
-			}
-			else
-			{
-				includeKeyValues->deleteThis();
-				return;
-			}
-		}
-		else
-		{
-			return;
-		}
-		count++;
+		Warning( "VMT patch include depth exceeded\n" );
+		return false;
 	}
-	if( count >= 10 )
+
+	const char *includeName = keyValues.GetString( "include", "" );
+	if ( !includeName[0] )
 	{
-		Warning( "Infinite recursion in patch file?\n" );
+		Warning( "VMT patch has no include\n" );
+		return false;
 	}
+
+	KeyValues *base = new KeyValues( "vmt" );
+	if ( !base->LoadFromFile( g_pFileSystem, includeName ) || !ExpandPatchFile( *base, depth + 1 ) )
+	{
+		Warning( "Unable to load VMT patch include \"%s\"\n", includeName );
+		base->deleteThis();
+		return false;
+	}
+
+	KeyValues *insert = keyValues.FindKey( "insert" );
+	KeyValues *replace = keyValues.FindKey( "replace" );
+	if ( insert )
+		ApplyMaterialPatch( *base, *insert, false );
+	if ( replace )
+		ApplyMaterialPatch( *base, *replace, true );
+
+	keyValues = *base;
+	base->deleteThis();
+	return true;
 }
 
 bool CMaterial::LoadVMTFile( KeyValues& vmtKeyValues )
@@ -2239,9 +2238,7 @@ bool CMaterial::LoadVMTFile( KeyValues& vmtKeyValues )
 		Warning( "CMaterial::LoadVMTFile: can't open \"%s\"\n", pFileName );
 		return false;
 	}
-	ExpandPatchFile( vmtKeyValues );
-
-	return true;
+	return ExpandPatchFile( vmtKeyValues );
 }
 
 int CMaterial::GetNumPasses( void )

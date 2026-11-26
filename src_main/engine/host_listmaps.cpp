@@ -3,6 +3,7 @@
 #include "filesystem_engine.h"
 #include "utldict.h"
 #include "demo.h"
+#include "modelloader.h"
 
 // Imported from other .cpp files
 void Host_Map_f (void);
@@ -122,7 +123,7 @@ int CMapListItem::CheckFSHeaderVersion( char const *name )
 		g_pFileSystem->Close( fp );
 	}
 
-	return ( header.version == BSPVERSION ) ? VALID : INVALID;
+	return header.ident == IDBSPHEADER && CMapLoadHelper::IsSupportedMapVersion( header.version ) ? VALID : INVALID;
 }
 
 // How often to check the filesystem for updated map info

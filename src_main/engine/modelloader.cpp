@@ -28,6 +28,8 @@
 #include "Overlay.h"
 #include "utldict.h"
 #include "mempool.h"
+#include <stddef.h>
+#include <limits.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -175,6 +177,17 @@ static char			s_szLoadName[ 64 ];
 static char			s_MapName[ 64 ];
 static model_t		*s_pMap = NULL;
 static int			s_nMapLoadRecursion = 0;
+static const int BSP_VERSION_19 = 19;
+
+bool CMapLoadHelper::IsSupportedMapVersion( int version )
+{
+	return version == BSPVERSION || version == BSP_VERSION_19;
+}
+
+int CMapLoadHelper::MapVersion()
+{
+	return s_MapHeader.version;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -204,26 +217,39 @@ void CMapLoadHelper::Init( model_t *map, const char *loadname )
 	s_MapFile = g_pFileSystem->Open( s_MapName, "rb" );
 	if ( s_MapFile == FILESYSTEM_INVALID_HANDLE )
 	{
+		Shutdown();
 		Host_Error( "CMapLoadHelper::Init, unable to open %s\n", s_MapName );
 		return;
 	}
 
-	g_pFileSystem->Read( &s_MapHeader, sizeof( dheader_t ), s_MapFile );
-	if ( s_MapHeader.ident != IDBSPHEADER )
+	const int headerSize = sizeof( dheader_t );
+	if ( g_pFileSystem->Read( &s_MapHeader, headerSize, s_MapFile ) != headerSize ||
+		s_MapHeader.ident != IDBSPHEADER )
 	{
-		g_pFileSystem->Close( s_MapFile );
-		s_MapFile = (FileHandle_t)0;
-		Host_Error( "CMapLoadHelper::Init, map %s has wrong identifier\n", s_MapName );
+		Shutdown();
+		Host_Error( "CMapLoadHelper::Init, map %s has an invalid BSP header\n", s_MapName );
 		return;
 	}
 
-	if ( s_MapHeader.version != BSPVERSION )
+	if ( !IsSupportedMapVersion( s_MapHeader.version ) )
 	{
-		g_pFileSystem->Close( s_MapFile );
-		s_MapFile = (FileHandle_t)0;
-		Host_Error( "CMapLoadHelper::Init, map %s has wrong version (%i when expecting %i)\n", s_MapName,
-			s_MapHeader.version, BSPVERSION );
+		const int version = s_MapHeader.version;
+		Shutdown();
+		Host_Error( "CMapLoadHelper::Init, map %s has unsupported BSP version %i\n", s_MapName, version );
 		return;
+	}
+
+	const int fileSize = g_pFileSystem->Size( s_MapFile );
+	for ( int i = 0; i < HEADER_LUMPS; ++i )
+	{
+		const lump_t &lump = s_MapHeader.lumps[i];
+		if ( lump.filelen < 0 || ( lump.filelen > 0 &&
+			( lump.fileofs < headerSize || lump.fileofs > fileSize || lump.filelen > fileSize - lump.fileofs ) ) )
+		{
+			Shutdown();
+			Host_Error( "CMapLoadHelper::Init, map %s has an invalid lump %i\n", s_MapName, i );
+			return;
+		}
 	}
 
 	Assert( strlen(loadname) < 64 );
@@ -301,12 +327,6 @@ void CMapLoadHelper::LoadLumpData( int nLumpId, int offset, int size, void *pDat
 //-----------------------------------------------------------------------------
 CMapLoadHelper::CMapLoadHelper( int lumpToLoad )
 {
-	if ( s_MapHeader.version != BSPVERSION )
-	{
-		Sys_Error( "Map version is %i, expecting %i!!!",
-			s_MapHeader.version, BSPVERSION );
-	}
-
 	m_nLumpSize = 0;
 	m_pData = NULL;
 
@@ -335,8 +355,60 @@ CMapLoadHelper::CMapLoadHelper( int lumpToLoad )
 		Sys_Error( "Can't load lump %i, allocation of %i bytes failed!!!", lumpToLoad, m_nLumpSize + 1 );
 	}
 
+	m_pData[m_nLumpSize] = 0;
+	if ( !m_nLumpSize )
+		return;
+
 	g_pFileSystem->Seek( s_MapFile, lump->fileofs, FILESYSTEM_SEEK_HEAD );
-	g_pFileSystem->Read( m_pData, lump->filelen, s_MapFile );
+	if ( g_pFileSystem->Read( m_pData, m_nLumpSize, s_MapFile ) != m_nLumpSize )
+	{
+		Sys_Error( "Can't read lump %i from %s", lumpToLoad, s_MapName );
+		return;
+	}
+
+	if ( s_MapHeader.version != BSP_VERSION_19 )
+		return;
+
+	// Normalize the on-disk BSP 19 records to the engine's BSP 18 structures.
+	// Per-face average colors are already stored in the BSP 19 lighting lump.
+	const bool faces = lumpToLoad == LUMP_FACES || lumpToLoad == LUMP_ORIGINALFACES;
+	const bool leafs = lumpToLoad == LUMP_LEAFS;
+	if ( !faces && !leafs )
+		return;
+
+	static_assert( offsetof( dface_t, planenum ) == 16 && sizeof( dface_t ) == 72, "BSP 18 face layout" );
+	static_assert( sizeof( dleaf_t ) == 32, "BSP 18 leaf layout" );
+
+	const int prefix = faces ? offsetof( dface_t, planenum ) : 0;
+	const int recordSize = faces ? sizeof( dface_t ) : sizeof( dleaf_t );
+	// BSP 19 leaf version 0 ends with six RGBExp32 ambient light samples.
+	const int diskSize = faces ? recordSize - prefix : recordSize + 6 * sizeof( colorRGBExp32 );
+	const int count = m_nLumpSize / diskSize;
+	if ( m_nLumpSize % diskSize || count > ( INT_MAX - 1 ) / recordSize ||
+		( lumpToLoad == LUMP_FACES && m_nLumpVersion != LUMP_FACES_VERSION ) ||
+		( leafs && m_nLumpVersion != 0 ) )
+	{
+		Sys_Error( "Invalid BSP 19 lump %i layout in %s", lumpToLoad, s_MapName );
+		return;
+	}
+
+	const int convertedSize = count * recordSize;
+	byte *converted = new byte[convertedSize + 1]();
+	for ( int i = 0; i < count; ++i )
+	{
+		byte *dst = converted + i * recordSize;
+		memcpy( dst + prefix, m_pData + i * diskSize, faces ? diskSize : recordSize );
+		if ( leafs )
+		{
+			// BSP 19 packs the leaf flags into the upper seven bits of area.
+			dleaf_t *leaf = reinterpret_cast<dleaf_t *>( dst );
+			leaf->area = LittleShort( LittleShort( leaf->area ) & 0x1ff );
+		}
+	}
+
+	delete[] m_pData;
+	m_pData = converted;
+	m_nLumpSize = convertedSize;
 }
 
 //-----------------------------------------------------------------------------
@@ -696,13 +768,26 @@ void Mod_LoadOcclusion( void )
 	switch( lh.LumpVersion() )
 	{
 	case LUMP_OCCLUSION_VERSION:
+	case 2:
 		{
+			const bool hasArea = lh.LumpVersion() == 2;
+			const int recordSize = sizeof( doccluderdata_t ) + ( hasArea ? sizeof( int ) : 0 );
 			b->numoccluders = buf.GetInt();
-			if (b->numoccluders)
+			if ( !buf.IsValid() || b->numoccluders < 0 || b->numoccluders > ( lh.LumpSize() - buf.TellGet() ) / recordSize )
 			{
-				int nSize = b->numoccluders * sizeof(doccluderdata_t);
-				b->occluders = (doccluderdata_t*)Hunk_AllocName( nSize, "occluder data" );
-				buf.Get( b->occluders, nSize );
+				Host_Error( "Invalid occluder count in %s", lh.GetMapName() );
+				return;
+			}
+			if ( b->numoccluders )
+			{
+				const int nSize = b->numoccluders * sizeof( doccluderdata_t );
+				b->occluders = (doccluderdata_t *)Hunk_AllocName( nSize, "occluder data" );
+				for ( int i = 0; i < b->numoccluders; ++i )
+				{
+					buf.Get( &b->occluders[i], sizeof( doccluderdata_t ) );
+					if ( hasArea )
+						buf.GetInt();
+				}
 			}
 
 			b->numoccluderpolys = buf.GetInt();
@@ -3460,14 +3545,14 @@ bool CModelLoader::Map_IsValid( char const *mapname )
 
 		if ( header.ident == IDBSPHEADER )
 		{
-			if ( header.version == BSPVERSION )
+			if ( CMapLoadHelper::IsSupportedMapVersion( header.version ) )
 			{
 				// Map appears valid!!
 				return true;
 			}
 			else
 			{
-				Warning( "CModelLoader::Map_IsValid:  Map '%s' bsp version %i, expecting %i\n", mapname, header.version, BSPVERSION );
+				Warning( "CModelLoader::Map_IsValid:  Map '%s' has unsupported BSP version %i\n", mapname, header.version );
 			}
 		}
 		else

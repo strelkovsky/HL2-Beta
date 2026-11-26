@@ -110,6 +110,9 @@ public:
 	char				*GetLoadName( void );
 	model_t				*GetMap( void );
 
+	static bool			IsSupportedMapVersion( int version );
+	static int			MapVersion();
+
 	// Global setup/shutdown
 	static void			Init( model_t *map, const char *loadname );
 	static void			Shutdown( void );

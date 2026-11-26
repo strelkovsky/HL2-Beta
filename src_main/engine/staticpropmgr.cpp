@@ -259,7 +259,7 @@ private:
 	// Methods associated with unserializing static props
 	void UnserializeModelDict( CUtlBuffer& buf );
 	void UnserializeLeafList( CUtlBuffer& buf );
-	void UnserializeModels( CUtlBuffer& buf );
+	void UnserializeModels( CUtlBuffer& buf, int lumpSize );
 	void UnserializeStaticProps();
 
 	int HandleEntityToIndex( IHandleEntity *pHandleEntity ) const;
@@ -986,16 +986,22 @@ void CStaticPropMgr::UnserializeLeafList( CUtlBuffer& buf )
 	}
 }
 
-void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf )
+void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf, int lumpSize )
 {
-	// Version check
-	if ( Mod_GameLumpVersion( GAMELUMP_STATIC_PROPS ) < 4 )
+	const int version = Mod_GameLumpVersion( GAMELUMP_STATIC_PROPS );
+	if ( version != 4 && version != 5 )
 	{
-		Warning("Really old map format! Static props can't be loaded...\n");
+		Warning( "Unsupported static prop lump version %i\n", version );
 		return;
 	}
 
-	int count = buf.GetInt();
+	const int recordSize = sizeof( StaticPropLump_t ) + ( version == 5 ? sizeof( float ) : 0 );
+	const int count = buf.GetInt();
+	if ( !buf.IsValid() || count < 0 || count > ( lumpSize - buf.TellGet() ) / recordSize )
+	{
+		Host_Error( "Invalid static prop count in map" );
+		return;
+	}
 
 	// Gotta preallocate the static props here so no rellocations take place
 	// the leaf list stores pointers to these tricky little guys.
@@ -1004,7 +1010,10 @@ void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf )
 	{
 		StaticPropLump_t lump;
 		buf.Get( &lump, sizeof(StaticPropLump_t) );
- 		m_StaticProps[i].Init( i, lump, m_StaticPropDict[lump.m_PropType].m_pModel );
+		if ( version == 5 )
+			buf.GetFloat(); // Version 5 adds a forced-fade scale after the version 4 fields.
+
+		m_StaticProps[i].Init( i, lump, m_StaticPropDict[lump.m_PropType].m_pModel );
 
 		// For distance-based fading, keep a list of the things that need
 		// to be faded out. Not sure if this is the optimal way of doing it
@@ -1076,7 +1085,7 @@ void CStaticPropMgr::UnserializeStaticProps()
 	{
 		UnserializeModelDict( buf );
 		UnserializeLeafList( buf );
-		UnserializeModels( buf );
+		UnserializeModels( buf, size );
 	}
 }
 

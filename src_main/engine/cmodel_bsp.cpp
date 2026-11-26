@@ -16,6 +16,7 @@ extern IMaterialSystem *materialSystemInterface;
 
 #include "vphysics_interface.h"
 #include "sys_dll.h"
+#include "utlbuffer.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -841,38 +842,100 @@ void CollisionBSPData_LoadEntityString( CCollisionBSPData *pBSPData )
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+// BSP 19 wraps IVP polygon surfaces in a VPHY header.
+static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, CUtlBuffer &converted )
+{
+	struct VPhysicsSolidHeader
+	{
+		char signature[4];
+		unsigned short version;
+		unsigned short type;
+		int surfaceSize;
+		float dragAxisAreas[3];
+		int axisMapSize;
+	};
+	static_assert( sizeof( VPhysicsSolidHeader ) == 28, "VPHY polygon header layout" );
+
+	const byte *end = data + size;
+	for ( int i = 0; i < solidCount; ++i )
+	{
+		int solidSize;
+		if ( end - data < static_cast<int>( sizeof( solidSize ) ) )
+			return false;
+		memcpy( &solidSize, data, sizeof( solidSize ) );
+		data += sizeof( solidSize );
+		if ( solidSize < static_cast<int>( sizeof( VPhysicsSolidHeader ) ) || solidSize > end - data )
+			return false;
+
+		VPhysicsSolidHeader header;
+		memcpy( &header, data, sizeof( header ) );
+		if ( memcmp( header.signature, "VPHY", sizeof( header.signature ) ) != 0 ||
+			header.version != 0x100 || header.type != 0 )
+		{
+			Warning( "Unsupported VPHY collision solid (version %u, type %u)\n", header.version, header.type );
+			return false;
+		}
+
+		const int surfaceSize = header.surfaceSize;
+		const int surfaceTagOffset = 44;
+		if ( surfaceSize < surfaceTagOffset + 4 || surfaceSize > solidSize - static_cast<int>( sizeof( header ) ) )
+			return false;
+
+		const byte *surface = data + sizeof( header );
+		if ( memcmp( surface + surfaceTagOffset, "IVPS", 4 ) != 0 )
+			return false;
+
+		converted.PutInt( surfaceSize );
+		converted.Put( surface, surfaceSize );
+		data += solidSize;
+	}
+	return data == end && converted.IsValid();
+}
+
 void CollisionBSPData_LoadPhysics( CCollisionBSPData *pBSPData )
 {
 	CMapLoadHelper lh( LUMP_PHYSCOLLIDE );
-
 	if ( !lh.LumpSize() )
 		return;
 
-	byte *ptr = lh.LumpBase();
-	byte *basePtr = ptr;
-
-	dphysmodel_t physModel;
-
-	// physics data is variable length.  The last physmodel is a NULL pointer
-	// with modelIndex -1, dataSize -1
-	do
+	const byte *data = lh.LumpBase();
+	const byte *end = data + lh.LumpSize();
+	while ( end - data >= static_cast<int>( sizeof( dphysmodel_t ) ) )
 	{
-		memcpy( &physModel, ptr, sizeof(physModel) );
-		ptr += sizeof(physModel);
+		dphysmodel_t model;
+		memcpy( &model, data, sizeof( model ) );
+		data += sizeof( model );
+		if ( model.dataSize <= 0 )
+			return;
 
-		if ( physModel.dataSize > 0 )
+		if ( model.modelIndex < 0 || model.modelIndex >= pBSPData->numcmodels ||
+			model.solidCount <= 0 || model.keydataSize < 0 || model.dataSize > end - data ||
+			model.keydataSize > end - data - model.dataSize )
 		{
-			cmodel_t *pModel = &pBSPData->map_cmodels[ physModel.modelIndex ];
-			physcollision->VCollideLoad( &pModel->vcollisionData, physModel.solidCount, (const char *)ptr, physModel.dataSize + physModel.keydataSize );
-			ptr += physModel.dataSize;
-			ptr += physModel.keydataSize;
+			Sys_Error( "Invalid physics model in %s", lh.GetMapName() );
+			return;
 		}
-		
-		// avoid infinite loop on badly formed file
-		if ( (int)(ptr - basePtr) > lh.LumpSize() )
-			break;
 
-	} while ( physModel.dataSize > 0 );
+		vcollide_t *collision = &pBSPData->map_cmodels[model.modelIndex].vcollisionData;
+		const int blockSize = model.dataSize + model.keydataSize;
+		if ( lh.MapVersion() == BSPVERSION )
+		{
+			physcollision->VCollideLoad( collision, model.solidCount, reinterpret_cast<const char *>( data ), blockSize );
+		}
+		else
+		{
+			CUtlBuffer converted( 0, blockSize );
+			if ( !ConvertVPhysicsSolids( data, model.dataSize, model.solidCount, converted ) )
+			{
+				Sys_Error( "Invalid or unsupported VPHY collision for model %i in %s", model.modelIndex, lh.GetMapName() );
+				return;
+			}
+			converted.Put( data + model.dataSize, model.keydataSize );
+			physcollision->VCollideLoad( collision, model.solidCount,
+				reinterpret_cast<const char *>( converted.Base() ), converted.TellPut() );
+		}
+		data += blockSize;
+	}
 }
 
 
