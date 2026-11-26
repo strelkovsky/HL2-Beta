@@ -40,12 +40,14 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX8_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -67,6 +69,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
     </Link>
@@ -303,5 +306,200 @@
     <None Include="..\..\lib\public\tier0.lib" />
   </ItemGroup>
   <Import Project="..\..\HL2_Output.props" />
+  <ItemGroup>
+    <ShaderPsh Include="BaseTimesLightmapWet.psh" />
+    <ShaderVsh Include="BaseTimesLightmapWet.vsh" />
+    <ShaderPsh Include="BumpmappedEnvmap.psh" />
+    <ShaderVsh Include="BumpmappedEnvmap.vsh" />
+    <ShaderPsh Include="BumpmappedLightmap_OverBright1.psh" />
+    <ShaderPsh Include="BumpmappedLightmap_OverBright2.psh" />
+    <ShaderPsh Include="Cable.psh" />
+    <ShaderVsh Include="Cable.vsh" />
+    <ShaderPsh Include="Eyes.psh" />
+    <ShaderVsh Include="Eyes.vsh" />
+    <ShaderPsh Include="Eyes_Overbright2.psh" />
+    <ShaderVsh Include="HotSpotGlow.vsh" />
+    <ShaderPsh Include="JellyFish.psh" />
+    <ShaderVsh Include="JellyFish.vsh" />
+    <ShaderVsh Include="Jojirium.vsh" />
+    <ShaderPsh Include="LightmappedGeneric.psh" />
+    <ShaderVsh Include="LightmappedGeneric.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_BaseAlphaMaskedEnvMapV2.psh" />
+    <ShaderPsh Include="LightmappedGeneric_BaseTexture.psh" />
+    <ShaderVsh Include="LightmappedGeneric_BaseTexture.vsh" />
+    <ShaderVsh Include="LightmappedGeneric_BaseTextureBlend.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_BumpmappedEnvmap.psh" />
+    <ShaderVsh Include="LightmappedGeneric_BumpmappedEnvmap.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_BumpmappedEnvmap_ps14.psh" />
+    <ShaderVsh Include="LightmappedGeneric_BumpmappedEnvmap_ps14.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_BumpmappedLightmap.psh" />
+    <ShaderVsh Include="LightmappedGeneric_BumpmappedLightmap.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_Detail.psh" />
+    <ShaderVsh Include="LightmappedGeneric_Detail.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_DetailNoTexture.psh" />
+    <ShaderPsh Include="LightmappedGeneric_DetailSelfIlluminated.psh" />
+    <ShaderVsh Include="LightmappedGeneric_DetailVertexColor.vsh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMap.vsh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMapCameraSpace.vsh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMapCameraSpaceVertexColor.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_EnvMapNoTexture.psh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMapSphere.vsh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMapSphereVertexColor.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_EnvMapV2.psh" />
+    <ShaderVsh Include="LightmappedGeneric_EnvMapVertexColor.vsh" />
+    <ShaderPsh Include="LightmappedGeneric_MaskedEnvMapNoTexture.psh" />
+    <ShaderPsh Include="LightmappedGeneric_MaskedEnvMapV2.psh" />
+    <ShaderPsh Include="LightmappedGeneric_MultiplyByLighting.psh" />
+    <ShaderPsh Include="LightmappedGeneric_MultiplyByLightingNoTexture.psh" />
+    <ShaderPsh Include="LightmappedGeneric_MultiplyByLightingSelfIllum.psh" />
+    <ShaderPsh Include="LightmappedGeneric_NoTexture.psh" />
+    <ShaderPsh Include="LightmappedGeneric_SelfIlluminated.psh" />
+    <ShaderPsh Include="LightmappedGeneric_SelfIlluminatedEnvMapV2.psh" />
+    <ShaderPsh Include="LightmappedGeneric_SelfIlluminatedMaskedEnvMapV2.psh" />
+    <ShaderVsh Include="LightmappedGeneric_VertexColor.vsh" />
+    <ShaderPsh Include="LightmappedTranslucentTexture.psh" />
+    <ShaderVsh Include="LightmappedTranslucentTexture.vsh" />
+    <ShaderPsh Include="Modulate_ps11.psh" />
+    <ShaderVsh Include="ParticleSphere.vsh" />
+    <ShaderVsh Include="Refract_model_vs11.vsh" />
+    <ShaderPsh Include="Refract_ps11.psh" />
+    <ShaderVsh Include="Refract_world_vs11.vsh" />
+    <ShaderVsh Include="ScreenSpaceEffect.vsh" />
+    <ShaderPsh Include="Shadow.psh" />
+    <ShaderPsh Include="ShadowBuildTexture.psh" />
+    <ShaderPsh Include="ShadowModel.psh" />
+    <ShaderVsh Include="ShadowModel.vsh" />
+    <ShaderPsh Include="SpriteRenderNormal.psh" />
+    <ShaderPsh Include="SpriteRenderTransAdd.psh" />
+    <ShaderPsh Include="SpriteRenderTransColor.psh" />
+    <ShaderVsh Include="Teeth.vsh" />
+    <ShaderPsh Include="UnlitGeneric.psh" />
+    <ShaderVsh Include="UnlitGeneric.vsh" />
+    <ShaderPsh Include="UnlitGeneric_BaseAlphaMaskedEnvMap.psh" />
+    <ShaderPsh Include="UnlitGeneric_Detail.psh" />
+    <ShaderVsh Include="UnlitGeneric_Detail.vsh" />
+    <ShaderPsh Include="UnlitGeneric_DetailBaseAlphaMaskedEnvMap.psh" />
+    <ShaderPsh Include="UnlitGeneric_DetailEnvMap.psh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMap.vsh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMapCameraSpace.vsh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMapCameraSpaceVertexColor.vsh" />
+    <ShaderPsh Include="UnlitGeneric_DetailEnvMapMask.psh" />
+    <ShaderPsh Include="UnlitGeneric_DetailEnvMapMaskNoTexture.psh" />
+    <ShaderPsh Include="UnlitGeneric_DetailEnvMapNoTexture.psh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMapSphere.vsh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMapSphereVertexColor.vsh" />
+    <ShaderVsh Include="UnlitGeneric_DetailEnvMapVertexColor.vsh" />
+    <ShaderPsh Include="UnlitGeneric_DetailNoTexture.psh" />
+    <ShaderVsh Include="UnlitGeneric_DetailVertexColor.vsh" />
+    <ShaderPsh Include="UnlitGeneric_EnvMap.psh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMap.vsh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMapCameraSpace.vsh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMapCameraSpaceVertexColor.vsh" />
+    <ShaderPsh Include="UnlitGeneric_EnvMapMask.psh" />
+    <ShaderPsh Include="UnlitGeneric_EnvMapMaskNoTexture.psh" />
+    <ShaderPsh Include="UnlitGeneric_EnvMapNoTexture.psh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMapSphere.vsh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMapSphereVertexColor.vsh" />
+    <ShaderVsh Include="UnlitGeneric_EnvMapVertexColor.vsh" />
+    <ShaderVsh Include="UnlitGeneric_LightingOnlyWorld.vsh" />
+    <ShaderPsh Include="UnlitGeneric_NoTexture.psh" />
+    <ShaderVsh Include="UnlitGeneric_VertexColor.vsh" />
+    <ShaderPsh Include="UnlitTwoTexture.psh" />
+    <ShaderVsh Include="UnlitTwoTexture.vsh" />
+    <ShaderVsh Include="UnlitTwoTexture_VertexColor.vsh" />
+    <ShaderVsh Include="VertexLitEnvMappedTexture.vsh" />
+    <ShaderVsh Include="VertexLitEnvMappedTexture_CameraSpace.vsh" />
+    <ShaderVsh Include="VertexLitEnvMappedTexture_SphereMap.vsh" />
+    <ShaderPsh Include="VertexLitGeneric.psh" />
+    <ShaderPsh Include="VertexLitGeneric_BaseAlphaMaskedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_Detail.psh" />
+    <ShaderVsh Include="VertexLitGeneric_Detail.vsh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailBaseAlphaMaskedEnvMapV2.psh" />
+    <ShaderVsh Include="VertexLitGeneric_DetailEnvMap.vsh" />
+    <ShaderVsh Include="VertexLitGeneric_DetailEnvMapCameraSpace.vsh" />
+    <ShaderVsh Include="VertexLitGeneric_DetailEnvMapSphere.vsh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailMaskedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailNoTexture.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailSelfIlluminated.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailSelfIlluminatedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DetailSelfIlluminatedMaskedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpLightingOnly_Overbright1.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpLightingOnly_Overbright2.psh" />
+    <ShaderVsh Include="VertexLitGeneric_DiffBumpTimesBase.vsh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpTimesBase_Overbright1.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpTimesBase_Overbright1_Translucent.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpTimesBase_Overbright2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_DiffBumpTimesBase_Overbright2_Translucent.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvMapNoTexture.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvmappedBumpmapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvmappedBumpmapV2_MultByAlpha.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvmappedBumpmapV2_MultByAlpha_ps14.psh" />
+    <ShaderPsh Include="VertexLitGeneric_EnvmappedBumpmapV2_ps14.psh" />
+    <ShaderVsh Include="VertexLitGeneric_EnvmappedBumpmap_NoLighting.vsh" />
+    <ShaderVsh Include="VertexLitGeneric_EnvmappedBumpmap_NoLighting_ps14.vsh" />
+    <ShaderVsh Include="VertexLitGeneric_EnvmappedBumpmap_VertLit.vsh" />
+    <ShaderPsh Include="VertexLitGeneric_MaskedEnvMapNoTexture.psh" />
+    <ShaderPsh Include="VertexLitGeneric_MaskedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_NoTexture.psh" />
+    <ShaderPsh Include="VertexLitGeneric_SelfIllumOnly.psh" />
+    <ShaderVsh Include="VertexLitGeneric_SelfIllumOnly.vsh" />
+    <ShaderPsh Include="VertexLitGeneric_SelfIlluminated.psh" />
+    <ShaderPsh Include="VertexLitGeneric_SelfIlluminatedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitGeneric_SelfIlluminatedMaskedEnvMapV2.psh" />
+    <ShaderPsh Include="VertexLitTexture.psh" />
+    <ShaderVsh Include="VertexLitTexture.vsh" />
+    <ShaderPsh Include="VertexLitTexture_Overbright2.psh" />
+    <ShaderPsh Include="WaterCheap_ps11.psh" />
+    <ShaderPsh Include="WaterCheap_ps14.psh" />
+    <ShaderVsh Include="WaterCheap_vs11.vsh" />
+    <ShaderVsh Include="WaterCheap_vs14.vsh" />
+    <ShaderPsh Include="WaterReflect_ps11.psh" />
+    <ShaderPsh Include="WaterRefract_ps11.psh" />
+    <ShaderPsh Include="Water_ps14.psh" />
+    <ShaderVsh Include="Water_ps14.vsh" />
+    <ShaderVsh Include="Water_vs11.vsh" />
+    <ShaderPsh Include="WorldTexture.psh" />
+    <ShaderVsh Include="WorldTexture.vsh" />
+    <ShaderPsh Include="WorldVertexAlpha.psh" />
+    <ShaderVsh Include="WorldVertexAlpha.vsh" />
+    <ShaderPsh Include="WorldVertexTransition.psh" />
+    <ShaderVsh Include="WorldVertexTransition.vsh" />
+    <ShaderPsh Include="WorldVertexTransition_BlendBase2.psh" />
+    <ShaderPsh Include="WorldVertexTransition_Micros.psh" />
+    <ShaderVsh Include="WorldVertexTransition_Micros.vsh" />
+    <ShaderPsh Include="WorldVertexTransition_Micros_EditMode.psh" />
+    <ShaderPsh Include="WriteEnvMapMaskToAlphaBuffer.psh" />
+    <ShaderPsh Include="WriteZWithHeightClipPlane.psh" />
+    <ShaderVsh Include="WriteZWithHeightClipPlane.vsh" />
+    <ShaderVsh Include="WriteZWithHeightClipPlane_World.vsh" />
+    <ShaderPsh Include="alienscale_overbright2_ps11.psh" />
+    <ShaderPsh Include="alienscale_overbright2_ps14.psh" />
+    <ShaderPsh Include="alienscale_ps11.psh" />
+    <ShaderPsh Include="alienscale_ps14.psh" />
+    <ShaderVsh Include="alienscale_vs11.vsh" />
+    <ShaderVsh Include="alienscale_vs14.vsh" />
+    <ShaderVsh Include="glowwarp.vsh" />
+    <ShaderPsh Include="lightmappedgeneric_basetextureblend.psh" />
+    <ShaderPsh Include="overlay_fit_ps11.psh" />
+    <ShaderVsh Include="overlay_fit_vs11.vsh" />
+    <ShaderPsh Include="predator.psh" />
+    <ShaderVsh Include="predator.vsh" />
+    <ShaderPsh Include="shadow_ps14.psh" />
+    <ShaderVsh Include="shadow_vs14.vsh" />
+    <ShaderPsh Include="white.psh" />
+    <ShaderVsh Include="writez.vsh" />
+    <ShaderPsh Include="yuv.psh" />
+  </ItemGroup>
+  <Target Name="GenerateVshShaders" BeforeTargets="ClCompile" Inputs="@(ShaderVsh);$(ProjectDir)..\..\devtools\bin\vsh_prep.pl" Outputs="@(ShaderVsh->'$(ProjectDir)vshtmp9\%(Filename).inc')">
+    <Exec WorkingDirectory="$(ProjectDir)" Command="&quot;$(ProjectDir)..\..\devtools\bin\perl.exe&quot; &quot;$(ProjectDir)..\..\devtools\bin\vsh_prep.pl&quot; -dx9 &quot;%(ShaderVsh.Filename)%(ShaderVsh.Extension)&quot;" />
+  </Target>
+  <Target Name="GeneratePshShaders" BeforeTargets="ClCompile" Inputs="@(ShaderPsh);$(ProjectDir)..\..\devtools\bin\psh_prep.pl" Outputs="@(ShaderPsh->'$(ProjectDir)pshtmp9\%(Filename).inc')">
+    <Exec WorkingDirectory="$(ProjectDir)" Command="&quot;$(ProjectDir)..\..\devtools\bin\perl.exe&quot; &quot;$(ProjectDir)..\..\devtools\bin\psh_prep.pl&quot; -dx9 &quot;%(ShaderPsh.Filename)%(ShaderPsh.Extension)&quot;" />
+  </Target>
+  <Target Name="GenerateFxcShaders" BeforeTargets="ClCompile" Inputs="@(ShaderFxc);$(ProjectDir)..\..\devtools\bin\fxc_prep.pl" Outputs="@(ShaderFxc->'$(ProjectDir)fxctmp9\%(Filename).inc')">
+    <Exec WorkingDirectory="$(ProjectDir)" Command="&quot;$(ProjectDir)..\..\devtools\bin\perl.exe&quot; &quot;$(ProjectDir)..\..\devtools\bin\fxc_prep.pl&quot; -dx9 &quot;%(ShaderFxc.Filename)%(ShaderFxc.Extension)&quot;" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

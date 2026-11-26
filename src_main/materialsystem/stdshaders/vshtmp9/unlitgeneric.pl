@@ -1,4 +1,4 @@
-push @output, "vs.1.1																								; LINEINFO(unlitgeneric.vsh)(1)\n";
+push @output, "vs.1.1																								; LINEINFO(UnlitGeneric.vsh)(1)\n";
 push @output, ";------------------------------------																								; LINEINFO(macros.vsh)(1)\n";
 push @output, "; RULES FOR AUTHORING VERTEX SHADERS:																								; LINEINFO(macros.vsh)(2)\n";
 push @output, ";------------------------------------																								; LINEINFO(macros.vsh)(3)\n";
