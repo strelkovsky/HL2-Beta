@@ -37,8 +37,12 @@ public:
 protected:
 	virtual void SetTitle(const char *title, bool surfaceTitle);
 	virtual void OnClose();
+	virtual void GetClientArea(int &x, int &y, int &wide, int &tall);
 
 	typedef vgui::PropertyDialog BaseClass;
+
+private:
+	const bool m_useSinglePlayerLayout;
 };
 
 

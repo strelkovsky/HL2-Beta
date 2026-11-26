@@ -51,7 +51,7 @@ public:
 
 
 	void Shutdown( bool full );
-	void LoadFromFile( const char *filename, const char *tag, KeyValues *inKeys );
+	void LoadFromFile( const char *filename, const char *tag, KeyValues *inKeys, CScheme *baseScheme );
 
 	// Gets at the scheme's name
 	const char *GetName() { return tag; }
@@ -71,6 +71,7 @@ private:
 	KeyValues *data;
 	KeyValues *baseSettings;
 	KeyValues *colors;
+	CScheme *m_pBaseScheme;
 
 	CUtlVector<IBorder*> _borderVec;
 	IBorder  *_baseBorder;	// default border to use if others not found
@@ -98,7 +99,7 @@ public:
 	~CSchemeManager();
 
 	// loads a scheme from a file
-	// first scheme loaded becomes the default scheme, and all subsequent loaded scheme are derivitives of that
+	// The first loaded scheme is the default. Additional schemes may name a loaded base.
 	// tag is friendly string representing the name of the loaded scheme
 	virtual HScheme LoadSchemeFromFile(const char *fileName, const char *tag);
 
@@ -252,6 +253,7 @@ CScheme::CScheme()
 	data = NULL;
 	baseSettings = NULL;
 	colors = NULL;
+	m_pBaseScheme = NULL;
 
 	_baseBorder = NULL;	// default border to use if others not found
 	_borders = NULL;
@@ -279,21 +281,44 @@ HScheme CSchemeManager::LoadSchemeFromFile(const char *fileName, const char *tag
 		return 0;
 	}
 	
+	CScheme *baseScheme = NULL;
+	const char *baseTag = data->GetString( "BaseScheme", "" );
+	if ( *baseTag )
+	{
+		// The base must already be loaded, so scheme inheritance cannot be circular.
+		for ( int i = 1; i < _scheme.Count(); ++i )
+		{
+			if ( !stricmp( _scheme[i]->GetName(), baseTag ) )
+			{
+				baseScheme = _scheme[i];
+				break;
+			}
+		}
+
+		if ( !baseScheme )
+		{
+			Warning( "Scheme '%s' requires the loaded base scheme '%s'.\n", fileName, baseTag );
+			data->deleteThis();
+			return 0;
+		}
+	}
+
 	CScheme *newScheme = new CScheme();
-	newScheme->LoadFromFile( fileName, tag, data );
+	newScheme->LoadFromFile( fileName, tag, data, baseScheme );
 
 	return _scheme.AddToTail(newScheme);
 }
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CScheme::LoadFromFile( const char *inFilename, const char *inTag, KeyValues *inKeys )
+void CScheme::LoadFromFile( const char *inFilename, const char *inTag, KeyValues *inKeys, CScheme *baseScheme )
 {
 
 	strncpy(fileName, inFilename, sizeof(fileName) );
 	fileName[ sizeof(fileName) - 1 ] = '\0';
 	
 	data = inKeys;
+	m_pBaseScheme = baseScheme;
 	baseSettings = data->FindKey("BaseSettings", true);
 	colors = data->FindKey("Colors", true);
 
@@ -303,7 +328,8 @@ void CScheme::LoadFromFile( const char *inFilename, const char *inTag, KeyValues
 
 	if ( inTag )
 	{
-		strncpy( tag, inTag, sizeof( tag ) );
+		strncpy( tag, inTag, sizeof( tag ) - 1 );
+		tag[ sizeof( tag ) - 1 ] = 0;
 	}
 	else
 	{
@@ -346,6 +372,7 @@ void CScheme::LoadFonts()
 			bool proportionalFont = static_cast<bool>( i );
 			const char *fontName = GetMungedFontName( kv->GetName(), tag, proportionalFont ); // first time it adds a normal font, and then a proportional one
 			HFont font = surface()->CreateFont();
+			bool hasGlyphs = false;
 
 			// walk through creating add the glyph sets to the font
 			for (KeyValues *fontdata = kv->GetFirstSubKey(); fontdata != NULL; fontdata = fontdata->GetNextKey())
@@ -404,8 +431,12 @@ void CScheme::LoadFonts()
 
 
 
-				int lowRange = 0, highRange = 0;
-				sscanf(fontdata->GetString("range", ""), "%i %i", &lowRange, &highRange);
+				int lowRange, highRange;
+				if ( sscanf( fontdata->GetString( "range", "" ), "%i %i", &lowRange, &highRange ) != 2 )
+				{
+					lowRange = 0;
+					highRange = 0xFFFF;
+				}
 				int tall = fontdata->GetInt("tall");
 				int blur = fontdata->GetInt("blur");
 				int scanlines = fontdata->GetInt("scanlines");
@@ -423,17 +454,14 @@ void CScheme::LoadFonts()
 					tall = 128;
 				}
 
-				surface()->AddGlyphSetToFont(
-					font,
-					fontdata->GetString("name"), 
-					tall, 
-					fontdata->GetInt("weight"), 
-					blur,
-					scanlines,
-					flags,
-					lowRange, 
-					highRange);
-				int alias = _fontAliases.AddToTail();
+				if ( surface()->AddGlyphSetToFont( font, fontdata->GetString( "name" ), tall,
+					fontdata->GetInt( "weight" ), blur, scanlines, flags, lowRange, highRange ) )
+					hasGlyphs = true;
+			}
+
+			if ( hasGlyphs )
+			{
+				const int alias = _fontAliases.AddToTail();
 				strncpy( _fontAliases[alias]._fontName, fontName, FONT_ALIAS_NAME_LENGTH );
 				strncpy( _fontAliases[alias]._trueFontName, kv->GetName(), FONT_ALIAS_NAME_LENGTH );
 				_fontAliases[alias]._font = font;
@@ -447,6 +475,9 @@ void CScheme::LoadBorders()
 	_borders = data->FindKey("Borders", true);
 	for ( KeyValues *kv = _borders->GetFirstSubKey(); kv != NULL; kv = kv->GetNextKey())
 	{
+		if ( kv->GetDataType() != KeyValues::TYPE_NONE )
+			continue; // Scalar entries are aliases, not border definitions.
+
 		IBorder *border = new Border();
 		border->SetName(kv->GetName());
 		border->ApplySchemeSettings(this, kv); 
@@ -555,7 +586,13 @@ int CSchemeManager::GetProportionalNormalizedValue(int scaledValue)
 //-----------------------------------------------------------------------------
 const char *CScheme::GetResourceString(const char *stringName)
 {
-	return baseSettings->GetString(stringName);
+	for ( CScheme *scheme = this; scheme; scheme = scheme->m_pBaseScheme )
+	{
+		const char *value = scheme->baseSettings ? scheme->baseSettings->GetString( stringName, NULL ) : NULL;
+		if ( value )
+			return value;
+	}
+	return "";
 }
 
 //-----------------------------------------------------------------------------
@@ -596,14 +633,26 @@ HTexture CSchemeManager::GetImageID(const char *imageName, bool hardwareFiltered
 //-----------------------------------------------------------------------------
 // Purpose: returns a pointer to an existing border
 //-----------------------------------------------------------------------------
-IBorder *CScheme::GetBorder(const char *borderName)
+IBorder *CScheme::GetBorder( const char *borderName )
 {
-	for (int i = 0; i < _borderVec.Count(); i++)
+	for ( int depth = 0; borderName && *borderName && depth < 32; ++depth )
 	{
-		if (!stricmp(_borderVec[i]->GetName(), borderName))
+		const char *alias = NULL;
+		for ( CScheme *scheme = this; scheme; scheme = scheme->m_pBaseScheme )
 		{
-			return _borderVec[i];
+			for ( int i = 0; i < scheme->_borderVec.Count(); ++i )
+			{
+				IBorder *border = scheme->_borderVec[i];
+				if ( !stricmp( border->GetName(), borderName ) )
+					return border;
+			}
+
+			alias = scheme->_borders ? scheme->_borders->GetString( borderName, NULL ) : NULL;
+			if ( alias )
+				break;
 		}
+
+		borderName = alias;
 	}
 
 	return _baseBorder;
@@ -640,7 +689,7 @@ char const *CScheme::GetFontName( const HFont& font )
 			return _fontAliases[i]._trueFontName;
 	}
 
-	return "<Unknown font>";
+	return m_pBaseScheme ? m_pBaseScheme->GetFontName( font ) : "<Unknown font>";
 }
 
 //-----------------------------------------------------------------------------
@@ -648,8 +697,8 @@ char const *CScheme::GetFontName( const HFont& font )
 //-----------------------------------------------------------------------------
 HFont CScheme::GetFont(const char *fontName,bool proportional)
 {
-	// First look in the list of aliases...
-	return FindFontInAliasList( GetMungedFontName( fontName, tag, proportional ) );
+	HFont font = FindFontInAliasList( GetMungedFontName( fontName, tag, proportional ) );
+	return font || !m_pBaseScheme ? font : m_pBaseScheme->GetFont( fontName, proportional );
 }
 
 //-----------------------------------------------------------------------------
@@ -672,45 +721,26 @@ const char *CScheme::GetMungedFontName( const char *fontName, const char *scheme
 //-----------------------------------------------------------------------------
 // Purpose: Gets a color from the scheme file
 //-----------------------------------------------------------------------------
-Color CScheme::GetColor(const char *colorName, Color defaultColor)
+Color CScheme::GetColor( const char *colorName, Color defaultColor )
 {
-	// check the color area first
-	KeyValues *data = colors;
-	const char *colStr = data->GetString(colorName, NULL);
-	if (colStr)
+	for ( int depth = 0; colorName && *colorName && depth < 32; ++depth )
 	{
-		int r, g, b, a;
-		sscanf(colStr, "%d %d %d %d", &r, &g, &b, &a);
-		return Color(r, g, b, a);
-	}
-
-	// check base settings
-	data = baseSettings;
-	colStr = data->GetString(colorName, NULL);
-	if (colStr)
-	{
-		int r, g, b, a;
-		int res = sscanf(colStr, "%d %d %d %d", &r, &g, &b, &a);
-		if (res < 3)
+		const char *value = NULL;
+		for ( CScheme *scheme = this; scheme; scheme = scheme->m_pBaseScheme )
 		{
-			// must be a color name, lookup color
-			char colorName[64];
-			strncpy(colorName, colStr, 63);
-			colorName[63] = 0;
-			return GetColor(colStr, defaultColor);
+			value = scheme->colors ? scheme->colors->GetString( colorName, NULL ) : NULL;
+			if ( !value && scheme->baseSettings )
+				value = scheme->baseSettings->GetString( colorName, NULL );
+			if ( value )
+				break;
 		}
 
-		return Color(r, g, b, a);
-	}
+		// A scheme can use an RGB or RGBA literal in place of a color name.
+		int r, g, b, a = 255;
+		if ( sscanf( value ? value : colorName, "%d %d %d %d", &r, &g, &b, &a ) >= 3 )
+			return Color( r, g, b, a );
 
-	// try parse out the color
-	int r, g, b, a;
-	int res = sscanf(colorName, "%d %d %d %d", &r, &g, &b, &a);
-	if (res > 2)
-	{
-		return Color(r, g, b, a);
+		colorName = value;
 	}
-
 	return defaultColor;
 }
-

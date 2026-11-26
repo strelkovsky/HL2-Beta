@@ -80,19 +80,22 @@ public:
 	{
 		BaseClass::ApplySchemeSettings(pScheme);
 
-		// make fully transparent
-		SetFgColor(GetSchemeColor("InGameDesktop/MenuColor", pScheme));
-		SetBgColor(Color(0, 0, 0, 0));
-		SetDefaultColor(GetSchemeColor("InGameDesktop/MenuColor", pScheme), Color(0, 0, 0, 0));
-		SetArmedColor(GetSchemeColor("InGameDesktop/ArmedMenuColor", pScheme), Color(0, 0, 0, 0));
-		SetDepressedColor(GetSchemeColor("InGameDesktop/DepressedMenuColor", pScheme), Color(0, 0, 0, 0));
+		const Color transparent( 0, 0, 0, 0 );
+		const Color textColor = GetSchemeColor( "InGameDesktop/MenuColor", pScheme );
+		SetFgColor( textColor );
+		SetBgColor( transparent );
+		SetDefaultColor( textColor, transparent );
+		SetArmedColor( GetSchemeColor( "InGameDesktop/ArmedMenuColor", pScheme ),
+			GetSchemeColor( "InGameDesktop/ArmedMenuBgColor", transparent, pScheme ) );
+		SetDepressedColor( GetSchemeColor( "InGameDesktop/DepressedMenuColor", pScheme ),
+			GetSchemeColor( "InGameDesktop/DepressedMenuBgColor", transparent, pScheme ) );
 		SetContentAlignment(Label::a_west);
 		SetBorder(NULL);
 		SetDefaultBorder(NULL);
 		SetDepressedBorder(NULL);
 		SetKeyFocusBorder(NULL);
 		SetFont(pScheme->GetFont( "MenuLarge", IsProportional()));
-		SetTextInset(0, 0);
+		SetTextInset( atoi( pScheme->GetResourceString( "InGameDesktop/MenuTextInset" ) ), 0 );
 		SetArmedSound("sound/UI/buttonrollover.wav");
 		SetDepressedSound("sound/UI/buttonclick.wav");
 		SetReleasedSound("sound/UI/buttonclickrelease.wav");
@@ -134,6 +137,7 @@ public:
 
 		// make fully transparent
 		SetMenuItemHeight(atoi(pScheme->GetResourceString("InGameDesktop/MenuItemHeight")));
+		SetMinimumWidth( atoi( pScheme->GetResourceString( "InGameDesktop/MenuMinimumWidth" ) ) );
 		SetBgColor(Color(0, 0, 0, 0));
 		SetBorder(NULL);
 

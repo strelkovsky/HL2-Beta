@@ -225,14 +225,14 @@ void CWin32Font::GetCharRGBA(int ch, int rgbaX, int rgbaY, int rgbaWide, int rgb
 	{
 		// try and get the glyph directly
 		::SelectObject(m_hDC, m_hFont);
-		bytesNeeded = ::GetGlyphOutline(m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, 0, NULL, &mat2);
+		bytesNeeded = ::GetGlyphOutlineW(m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, 0, NULL, &mat2);
 	}
 
 	if (bytesNeeded > 0)
 	{
 		// take it
 		unsigned char *lpbuf = (unsigned char *)_alloca(bytesNeeded);
-		::GetGlyphOutline(m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, bytesNeeded, lpbuf, &mat2);
+		::GetGlyphOutlineW(m_hDC, ch, GGO_GRAY8_BITMAP, &glyphMetrics, bytesNeeded, lpbuf, &mat2);
 
 		// rows are on DWORD boundaries
 		wide = glyphMetrics.gmBlackBoxX;
@@ -260,7 +260,7 @@ void CWin32Font::GetCharRGBA(int ch, int rgbaX, int rgbaY, int rgbaWide, int rgb
 			{
 				int x = rgbaX + i - xstart + m_iBlur + m_iOutlineSize;
 				int y = rgbaY + j + pushDown;
-				if ((x < rgbaWide) && (y < rgbaTall))
+				if ( x >= 0 && x < rgbaWide && y >= 0 && y < rgbaTall )
 				{
 					unsigned char grayscale = lpbuf[(j*wide+i)];
 

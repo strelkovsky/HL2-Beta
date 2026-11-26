@@ -196,9 +196,13 @@
     <ClInclude Include=".\OptionsSubVideo.h" />
     <ClCompile Include=".\OptionsSubVoice.cpp" />
     <ClInclude Include=".\OptionsSubVoice.h" />
+    <None Include=".\GameUIScheme.res" />
     <None Include="..\lib\public\vgui_controls.lib" />
     <None Include="..\lib\public\tier0.lib" />
     <None Include="..\lib\public\vstdlib.lib" />
+    <None Include="GameUIScheme.res" />
+    <None Include="OptionsUI_english.txt" />
+    <None Include="OptionsUI_russian.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\vgui2\controls\vgui_controls.vcxproj">
@@ -208,6 +212,7 @@
   </ItemGroup>
   <Import Project="..\HL2_Output.props" />
   <Target Name="PublishGameUIToMods" AfterTargets="Build" Condition="Exists('$(TargetPath)')">
+    <Copy SourceFiles="$(ProjectDir)GameUIScheme.res;$(ProjectDir)OptionsUI_english.txt;$(ProjectDir)OptionsUI_russian.txt" DestinationFolder="$(HL2OutputRoot)hl2\resource" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl2\bin\GameUI.dll" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)tf2\bin\GameUI.dll" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl1\bin\GameUI.dll" SkipUnchangedFiles="true" />

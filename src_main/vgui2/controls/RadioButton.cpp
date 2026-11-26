@@ -44,9 +44,8 @@ enum direction
 class RadioImage : public Image
 {
 public:
-	RadioImage(RadioButton *radioButton)
+	RadioImage(RadioButton *radioButton) : _radioButton(radioButton), _font(0)
 	{
-		_radioButton = radioButton;
 
 		SetSize(20, 13);
 	}
@@ -62,6 +61,9 @@ public:
 
 	virtual void Paint()
 	{
+		if ( !_font )
+			return;
+
 		DrawSetTextFont(_font);
 
 		// draw background

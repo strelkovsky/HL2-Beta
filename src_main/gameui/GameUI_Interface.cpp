@@ -200,12 +200,22 @@ void CGameUI::Initialize( CreateInterfaceFn *factories, int count )
 
 		// load localization file
 	vgui::localize()->AddFile(vgui::filesystem(), "Resource/gameui_%language%.txt");
+	const char *uiLanguage = CommandLine()->ParmValue( "-language", "" );
+	if ( !_stricmp( uiLanguage, "russian" ) )
+		vgui::localize()->AddFile( vgui::filesystem(), "Resource/OptionsUI_russian.txt" );
+	else if ( _stricmp( uiLanguage, "english" ) )
+		vgui::localize()->AddFile( vgui::filesystem(), "Resource/OptionsUI_%language%.txt" );
+	// The beta localizer keeps the first definition of each token.
+	vgui::localize()->AddFile( vgui::filesystem(), "Resource/OptionsUI_english.txt" );
 
 	// load localization file for kb_act.lst
 	vgui::localize()->AddFile(vgui::filesystem(), "Resource/valve_%language%.txt");
 
 	// setup base panel
 	staticPanel = new CBasePanel();
+	const vgui::HScheme gameUIScheme = vgui::scheme()->LoadSchemeFromFile( "Resource/GameUIScheme.res", "GameUI" );
+	if ( gameUIScheme )
+		staticPanel->SetScheme( gameUIScheme );
 	staticPanel->SetBounds(0, 0, 400, 300);
 	staticPanel->SetPaintBorderEnabled(false);
 	staticPanel->SetPaintBackgroundEnabled(true);

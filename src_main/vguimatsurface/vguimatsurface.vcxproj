@@ -145,6 +145,12 @@
     <None Include="..\lib\public\vgui_controls.lib" />
     <None Include="..\lib\public\tier0.lib" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\vgui2\vgui_surfacelib\vgui_surfacelib.vcxproj">
+      <Project>{FF3B3496-2A3B-586E-A6C3-CE8DB0F8323E}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="..\HL2_Output.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

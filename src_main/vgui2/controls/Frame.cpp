@@ -11,7 +11,8 @@
 //=============================================================================
 
 #include <assert.h>
-#include <math.h> // for ceil()
+#include <math.h>
+#include <stdlib.h>
 #define PROTECTED_THINGS_DISABLE
 
 #include <vgui/Cursor.h>
@@ -1166,8 +1167,44 @@ void Frame::PaintBackground()
 	Color titleColor = _titleBarDisabledBgColor;
 	bool titleEnabled = false;
 	
-	// draw the background of the Client area first
-	BaseClass::PaintBackground();
+	IScheme *pScheme = scheme()->GetIScheme( GetScheme() );
+	const int height = GetTall();
+	const int radius = min( min( wide, height ) / 2,
+		atoi( pScheme->GetResourceString( "FrameCornerRadius" ) ) );
+
+	if ( radius > 0 )
+	{
+		const Color background = GetBgColor();
+		int red, green, blue, opacity;
+		background.GetColor( red, green, blue, opacity );
+		surface()->DrawSetColor( background );
+		surface()->DrawFilledRect( 0, radius, wide, height - radius );
+
+		for ( int y = 0; y < radius; ++y )
+		{
+			const float dy = radius - y - 0.5f;
+			const float edge = radius - sqrtf( radius * radius - dy * dy );
+			const int inset = static_cast<int>( ceilf( edge ) );
+			const int bottom = height - y - 1;
+			surface()->DrawSetColor( background );
+			surface()->DrawFilledRect( inset, y, wide - inset, y + 1 );
+			surface()->DrawFilledRect( inset, bottom, wide - inset, bottom + 1 );
+
+			if ( inset > 0 )
+			{
+				const int alpha = static_cast<int>( opacity * ( inset - edge ) );
+				surface()->DrawSetColor( red, green, blue, alpha );
+				surface()->DrawFilledRect( inset - 1, y, inset, y + 1 );
+				surface()->DrawFilledRect( wide - inset, y, wide - inset + 1, y + 1 );
+				surface()->DrawFilledRect( inset - 1, bottom, inset, bottom + 1 );
+				surface()->DrawFilledRect( wide - inset, bottom, wide - inset + 1, bottom + 1 );
+			}
+		}
+	}
+	else
+	{
+		BaseClass::PaintBackground();
+	}
 	
 	//take the panel with focus and check up tree for this panel
 	//if you find it, than some child of you has the focus, so
@@ -1203,7 +1240,6 @@ void Frame::PaintBackground()
 		FlashWindowStop();
 	}
 	
-	IScheme *pScheme = scheme()->GetIScheme( GetScheme() );
 	IBorder *border = pScheme->GetBorder( "FrameBorder");
 	if (border)
 	{
@@ -1235,7 +1271,7 @@ void Frame::PaintBackground()
 			{
 				_title->SetColor(_titleBarDisabledFgColor);
 			}
-			_title->SetPos(28, 9);		
+			_title->SetPos( radius && !_menuButton->IsVisible() ? 16 : 28, 9 );
 			_title->SetSize(wide - 72, tall);
 			_title->Paint();
 		}
@@ -1255,7 +1291,8 @@ void Frame::ApplySchemeSettings(IScheme *pScheme)
 	_titleBarDisabledFgColor = GetSchemeColor("TitleBarDisabledFgColor", pScheme);
 	_titleBarDisabledBgColor = GetSchemeColor("TitleBarDisabledBgColor", pScheme);
 
-	_title->SetFont( pScheme->GetFont( "Default", IsProportional() ) );
+	HFont titleFont = pScheme->GetFont( "WindowTitle", IsProportional() );
+	_title->SetFont( titleFont ? titleFont : pScheme->GetFont( "Default", IsProportional() ) );
 	_title->ResizeImageToContent();
 
 	HFont marfont = pScheme->GetFont( "Marlett", IsProportional() );
