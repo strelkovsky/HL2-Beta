@@ -2510,7 +2510,8 @@ float Studio_SetPoseParameter( const studiohdr_t *pStudioHdr, int iParameter, fl
 {
 	if (iParameter < 0 || iParameter >= pStudioHdr->numposeparameters)
 	{
-		return 0;
+		ctlValue = 0.0f;
+		return 0.0f;
 	}
 
 	mstudioposeparamdesc_t *pPoseParam = pStudioHdr->pPoseParameter( iParameter );
