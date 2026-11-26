@@ -843,7 +843,7 @@ void CollisionBSPData_LoadEntityString( CCollisionBSPData *pBSPData )
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 // BSP 19 wraps IVP polygon surfaces in a VPHY header.
-static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, CUtlBuffer &converted )
+static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, CUtlBuffer &converted, int &convertedSolidCount )
 {
 	struct VPhysicsSolidHeader
 	{
@@ -857,6 +857,8 @@ static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, C
 	static_assert( sizeof( VPhysicsSolidHeader ) == 28, "VPHY polygon header layout" );
 
 	const byte *end = data + size;
+	convertedSolidCount = 0;
+	bool skippedMopp = false;
 	for ( int i = 0; i < solidCount; ++i )
 	{
 		int solidSize;
@@ -869,8 +871,20 @@ static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, C
 
 		VPhysicsSolidHeader header;
 		memcpy( &header, data, sizeof( header ) );
-		if ( memcmp( header.signature, "VPHY", sizeof( header.signature ) ) != 0 ||
-			header.version != 0x100 || header.type != 0 )
+		if ( memcmp( header.signature, "VPHY", sizeof( header.signature ) ) != 0 || header.version != 0x100 )
+			return false;
+
+		// Temporarily omit trailing MOPP solids. Their indices may be referenced by
+		// the world key data, so only a trailing run can be removed safely.
+		if ( header.type == 1 )
+		{
+			if ( convertedSolidCount == 0 )
+				return false;
+			skippedMopp = true;
+			data += solidSize;
+			continue;
+		}
+		if ( header.type != 0 || skippedMopp )
 		{
 			Warning( "Unsupported VPHY collision solid (version %u, type %u)\n", header.version, header.type );
 			return false;
@@ -887,6 +901,7 @@ static bool ConvertVPhysicsSolids( const byte *data, int size, int solidCount, C
 
 		converted.PutInt( surfaceSize );
 		converted.Put( surface, surfaceSize );
+		++convertedSolidCount;
 		data += solidSize;
 	}
 	return data == end && converted.IsValid();
@@ -925,13 +940,17 @@ void CollisionBSPData_LoadPhysics( CCollisionBSPData *pBSPData )
 		else
 		{
 			CUtlBuffer converted( 0, blockSize );
-			if ( !ConvertVPhysicsSolids( data, model.dataSize, model.solidCount, converted ) )
+			int convertedSolidCount;
+			if ( !ConvertVPhysicsSolids( data, model.dataSize, model.solidCount, converted, convertedSolidCount ) )
 			{
 				Sys_Error( "Invalid or unsupported VPHY collision for model %i in %s", model.modelIndex, lh.GetMapName() );
 				return;
 			}
+			if ( convertedSolidCount != model.solidCount )
+				Warning( "Temporarily skipped %i MOPP collision solid(s) for model %i in %s\n",
+					model.solidCount - convertedSolidCount, model.modelIndex, lh.GetMapName() );
 			converted.Put( data + model.dataSize, model.keydataSize );
-			physcollision->VCollideLoad( collision, model.solidCount,
+			physcollision->VCollideLoad( collision, convertedSolidCount,
 				reinterpret_cast<const char *>( converted.Base() ), converted.TellPut() );
 		}
 		data += blockSize;

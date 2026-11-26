@@ -45,33 +45,28 @@ END_DATADESC()
 //------------------------------------------------------------------------------
 void CPointTeleport::Activate( void )
 {
-	CBaseEntity *pTarget = GetNextTarget();
-	if (pTarget)
-	{
-		if ( pTarget->GetMoveParent() != NULL )
-		{
-			Warning("ERROR: (%s) can't teleport object (%s) as it has a parent!\n",GetDebugName(),pTarget->GetDebugName());
+	BaseClass::Activate();
+	m_vSaveOrigin = GetAbsOrigin();
+	m_vSaveAngles = GetAbsAngles();
 
+	// Release maps can specify a target only when Teleport is fired.
+	if ( m_spawnflags & SF_TELEPORT_TO_SPAWN_POS )
+	{
+		CBaseEntity *pTarget = GetNextTarget();
+		if ( !pTarget )
+		{
+			Warning( "ERROR: (%s) given no target. Deleting.\n", GetDebugName() );
+			UTIL_Remove( this );
 			return;
 		}
-		if (m_spawnflags & SF_TELEPORT_TO_SPAWN_POS)
+		if ( pTarget->GetMoveParent() != NULL )
 		{
-			m_vSaveOrigin = pTarget->GetAbsOrigin();
-			m_vSaveAngles = pTarget->GetAbsAngles();
+			Warning( "ERROR: (%s) can't teleport object (%s) as it has a parent!\n", GetDebugName(), pTarget->GetDebugName() );
+			return;
 		}
-		else
-		{
-			m_vSaveOrigin = GetAbsOrigin();
-			m_vSaveAngles = GetAbsAngles();
-		}
+		m_vSaveOrigin = pTarget->GetAbsOrigin();
+		m_vSaveAngles = pTarget->GetAbsAngles();
 	}
-	else
-	{
-		Warning("ERROR: (%s) given no target.  Deleting.\n",GetDebugName());
-		UTIL_Remove(this);
-		return;
-	}
-	BaseClass::Activate();
 }
 
 

@@ -12,6 +12,8 @@
 #include <vgui/ISurface.h>
 #include <vgui/ILocalize.h>
 #include <vgui/ISystem.h>
+#include <vgui/IScheme.h>
+#include <string.h>
 #include <vgui_controls/ProgressBar.h>
 #include <vgui_controls/Label.h>
 #include <vgui_controls/Button.h>
@@ -28,11 +30,34 @@
 
 using namespace vgui;
 
+// Half-Life 2 uses white segments on a translucent dark track.
+class CReleaseLoadingProgress : public ProgressBar
+{
+public:
+ CReleaseLoadingProgress( Panel *parent, const char *name ) : ProgressBar( parent, name ) {}
+ virtual void ApplySchemeSettings( IScheme *scheme )
+ {
+  ProgressBar::ApplySchemeSettings( scheme );
+  SetFgColor( Color( 255, 255, 255, 255 ) );
+  SetBgColor( Color( 0, 0, 0, 96 ) );
+ }
+};
+
+static bool UseReleaseLoadingDialog()
+{
+ const char *path = engine->GetGameDirectory();
+ const char *slash = strrchr( path, '/' );
+ const char *backslash = strrchr( path, '\\' );
+ if ( !slash || ( backslash && backslash > slash ) ) slash = backslash;
+ return !_stricmp( slash ? slash + 1 : path, "hl2" );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
 CLoadingDialog::CLoadingDialog(vgui::Panel *parent) : Frame(parent, "LoadingDialog")
 {
+	m_bReleaseStyle = UseReleaseLoadingDialog();
 	SetSize(416, 100);
 	SetTitle("#GameUI_Loading", true);
 	m_bShowingSecondaryProgress = false;
@@ -40,7 +65,7 @@ CLoadingDialog::CLoadingDialog(vgui::Panel *parent) : Frame(parent, "LoadingDial
 	m_flLastSecondaryProgressUpdateTime = 0.0f;
 	m_flSecondaryProgressStartTime = 0.0f;
 
-	m_pProgress = new ProgressBar(this, "Progress");
+	m_pProgress = m_bReleaseStyle ? new CReleaseLoadingProgress(this, "Progress") : new ProgressBar(this, "Progress");
 	m_pProgress2 = new ProgressBar(this, "Progress2");
 	m_pInfoLabel = new Label(this, "InfoLabel", "");
 	m_pCancelButton = new Button(this, "CancelButton", "Cancel");
@@ -64,7 +89,11 @@ CLoadingDialog::CLoadingDialog(vgui::Panel *parent) : Frame(parent, "LoadingDial
 	m_pProgress2->SetVisible(false);
 
 	// get steam content sponsor from registry
-	if (CommandLine()->FindParm("-steam") || CommandLine()->FindParm("-showplatform"))
+	if ( m_bReleaseStyle )
+	{
+		LoadControlSettings("Resource/LoadingDialogRelease.res");
+	}
+	else if (CommandLine()->FindParm("-steam") || CommandLine()->FindParm("-showplatform"))
 	{
 		char sponsorURL[1024];
 		if (system()->GetRegistryString("HKEY_LOCAL_MACHINE\\Software\\Valve\\Steam\\LastContentProviderURL", sponsorURL, sizeof(sponsorURL)))
@@ -95,19 +124,19 @@ CLoadingDialog::~CLoadingDialog()
 //-----------------------------------------------------------------------------
 void CLoadingDialog::DisplayProgressBar(const char *resourceType, const char *resourceName)
 {
-	SetTitle("#GameUI_Loading", true);
+	SetTitle(m_bReleaseStyle ? "#LoadingUI_Title" : "#GameUI_Loading", true);
 	vgui::surface()->RestrictPaintToSinglePanel(GetVPanel());
 	vgui::surface()->SetModalPanel(GetVPanel());
 	BaseClass::Activate();
 
 	m_pProgress->SetVisible(true);
-	if ( !ModInfo().IsSinglePlayerOnly() )
+	if ( !m_bReleaseStyle && !ModInfo().IsSinglePlayerOnly() )
 	{
 		m_pInfoLabel->SetVisible(true);
 	}
 	m_pInfoLabel->SetText("");
 	
-	m_pCancelButton->SetText("Cancel");
+	m_pCancelButton->SetText(m_bReleaseStyle ? "#LoadingUI_Cancel" : "Cancel");
 	m_pCancelButton->SetCommand("Cancel");
 }
 
@@ -202,7 +231,8 @@ void CLoadingDialog::PerformLayout()
 //-----------------------------------------------------------------------------
 void CLoadingDialog::SetProgressPoint(int progressPoint)
 {
-	m_pProgress->SetProgress((float)progressPoint / (m_iRangeMax - m_iRangeMin));
+	const int range = m_iRangeMax - m_iRangeMin;
+	m_pProgress->SetProgress( range > 0 ? (float)( progressPoint - m_iRangeMin ) / range : 0.0f );
 }
 
 //-----------------------------------------------------------------------------

@@ -1433,6 +1433,7 @@ void CL_SignonReply (void)
 
 			SpatialPartition()->SuppressLists( PARTITION_ALL_CLIENT_EDICTS, true );
 
+			SCR_UpdateLoadingProgress( 100 );
 			SCR_EndLoadingPlaque ();		// allow normal screen updates
 
 			if ( developer.GetInt() > 0 )

@@ -620,3 +620,28 @@ vgui::VPANEL CEngineVGui::GetPanel( VGUIPANEL type )
 
 EXPOSE_SINGLE_INTERFACE( CEngineVGui, IEngineVGui, VENGINE_VGUI_VERSION );
 
+
+// The legacy engine did not forward map loading progress to GameUI.
+bool VGui_StartLoadingProgress()
+{
+	if ( !staticGameUIFuncs || !staticGameUIPanel )
+		return false;
+	staticGameUIPanel->SetVisible( true );
+	staticGameUIFuncs->StartProgressBar( "level", 100 );
+	return true;
+}
+
+void VGui_UpdateLoadingProgress( int progress )
+{
+	if ( staticGameUIFuncs )
+		staticGameUIFuncs->ContinueProgressBar( progress, 0.0f );
+}
+
+void VGui_StopLoadingProgress()
+{
+	if ( staticGameUIFuncs )
+	{
+		staticGameUIFuncs->StopProgressBar( false, NULL, NULL );
+		g_BaseUI.HideGameUI();
+	}
+}

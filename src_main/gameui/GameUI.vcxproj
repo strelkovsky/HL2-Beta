@@ -199,6 +199,7 @@
     <None Include=".\GameUIScheme.res" />
     <None Include=".\GameMenu.res" />
     <None Include=".\NewGameChapters.res" />
+    <None Include=".\LoadingDialogRelease.res" />
     <None Include="..\lib\public\vgui_controls.lib" />
     <None Include="..\lib\public\tier0.lib" />
     <None Include="..\lib\public\vstdlib.lib" />
@@ -213,7 +214,7 @@
   </ItemGroup>
   <Import Project="..\HL2_Output.props" />
   <Target Name="PublishGameUIToMods" AfterTargets="Build" Condition="Exists('$(TargetPath)')">
-    <Copy SourceFiles="$(ProjectDir)GameUIScheme.res;$(ProjectDir)GameMenu.res;$(ProjectDir)NewGameChapters.res;$(ProjectDir)OptionsUI_english.txt;$(ProjectDir)OptionsUI_russian.txt" DestinationFolder="$(HL2OutputRoot)hl2\resource" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)GameUIScheme.res;$(ProjectDir)GameMenu.res;$(ProjectDir)NewGameChapters.res;$(ProjectDir)LoadingDialogRelease.res;$(ProjectDir)OptionsUI_english.txt;$(ProjectDir)OptionsUI_russian.txt" DestinationFolder="$(HL2OutputRoot)hl2\resource" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl2\bin\GameUI.dll" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)tf2\bin\GameUI.dll" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl1\bin\GameUI.dll" SkipUnchangedFiles="true" />

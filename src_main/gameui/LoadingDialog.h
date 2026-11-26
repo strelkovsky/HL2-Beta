@@ -46,6 +46,7 @@ private:
 	vgui::HTML *m_pHTML;
 
 	int m_iRangeMin, m_iRangeMax;
+	bool m_bReleaseStyle;
 	bool m_bShowingSecondaryProgress;
 	float m_flSecondaryProgress;
 	float m_flLastSecondaryProgressUpdateTime;

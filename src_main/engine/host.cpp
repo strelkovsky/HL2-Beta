@@ -2118,13 +2118,27 @@ bool Host_NewGame( char *mapName, bool loadGame )
 		HostState_RunGameInit();
 	}
 
+#ifndef SWDS
+	SCR_UpdateLoadingProgress( 20 );
+#endif
 	if ( !SV_SpawnServer ( mapName, NULL ) )
+	{
+#ifndef SWDS
+		SCR_EndLoadingPlaque();
+#endif
 		return false;
+	}
+#ifndef SWDS
+	SCR_UpdateLoadingProgress( 60 );
+#endif
 
 	// make sure the time is set
 	g_ServerGlobalVariables.curtime = sv.gettime();
 
 	serverGameDLL->LevelInit( mapName, CM_EntityString(), NULL, NULL, loadGame );
+#ifndef SWDS
+	SCR_UpdateLoadingProgress( 80 );
+#endif
 
 	if ( loadGame )
 	{
@@ -2134,9 +2148,15 @@ bool Host_NewGame( char *mapName, bool loadGame )
 	}
 
 	SV_ActivateServer();
+#ifndef SWDS
+	SCR_UpdateLoadingProgress( 90 );
+#endif
 
 	if ( !sv.active )
 	{
+#ifndef SWDS
+		SCR_EndLoadingPlaque();
+#endif
 		return false;
 	}
 

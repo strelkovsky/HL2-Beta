@@ -39,6 +39,24 @@ vrect_t		scr_vrect;
 qboolean	scr_disabled_for_loading;
 bool		scr_drawloading;
 static float scr_disabled_time;
+static bool s_bLoadingProgress = false;
+extern ConVar map_background_active;
+extern bool VGui_StartLoadingProgress();
+extern void VGui_UpdateLoadingProgress( int progress );
+extern void VGui_StopLoadingProgress();
+
+void SCR_UpdateLoadingProgress( int progress )
+{
+	if ( !s_bLoadingProgress )
+		return;
+	VGui_UpdateLoadingProgress( progress );
+	// Map loading runs synchronously; paint at safe milestones between stages.
+	const bool disabled = scr_disabled_for_loading != 0;
+	scr_disabled_for_loading = false;
+	SCR_UpdateScreen();
+	scr_disabled_for_loading = disabled;
+}
+
 
 //=============================================================================
 
@@ -89,6 +107,12 @@ void SCR_BeginLoadingPlaque (void)
 {
 	S_StopAllSounds (true);
 
+	if ( cls.state != ca_dedicated && !map_background_active.GetBool() && !s_bLoadingProgress )
+	{
+		s_bLoadingProgress = VGui_StartLoadingProgress();
+		SCR_UpdateLoadingProgress( 0 );
+	}
+
 	if (cls.state != ca_connected && cls.state != ca_active)
 		return;
 
@@ -112,6 +136,11 @@ void SCR_EndLoadingPlaque (void)
 {
 	scr_disabled_for_loading = false;
 	scr_drawloading = false;
+	if ( s_bLoadingProgress )
+	{
+		s_bLoadingProgress = false;
+		VGui_StopLoadingProgress();
+	}
 }
 
 //-----------------------------------------------------------------------------

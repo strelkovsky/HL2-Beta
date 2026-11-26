@@ -1059,6 +1059,8 @@ void CGameUI::StartProgressBar(const char *progressType, int progressSteps)
 		m_flProgressStartTime = (float)vgui::system()->GetCurrentTime();
 	}
 
+	// The loading dialog may be shown while the game UI was hidden.
+	staticPanel->SetVisible( true );
 	// open a loading dialog
 	g_hLoadingDialog->SetProgressRange(0 , progressSteps); 
 	g_hLoadingDialog->SetProgressPoint(0);

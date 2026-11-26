@@ -29,6 +29,7 @@ void SCR_CenterPrint (char *str);
 void SCR_CenterStringOff( void );
 void SCR_BeginLoadingPlaque (void);
 void SCR_EndLoadingPlaque (void);
+void SCR_UpdateLoadingProgress( int progress );
 
 extern	qboolean	scr_disabled_for_loading;
 extern	qboolean	scr_skipupdate;

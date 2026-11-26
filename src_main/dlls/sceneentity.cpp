@@ -2313,8 +2313,6 @@ void CSceneManager::RemoveSceneEntity( CSceneEntity *scene )
 	
 	h = scene;
 
-	Assert( m_ActiveScenes.Find( h ) != m_ActiveScenes.InvalidIndex() );
-
 	m_ActiveScenes.FindAndRemove( h );
 }
 

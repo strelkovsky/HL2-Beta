@@ -494,6 +494,9 @@ IPhysicsObject *PhysCreateWorld_Shared( CBaseEntity *pWorld, vcollide_t *pWorldC
 		{
 			solid.params = defaultParams;
 			pParse->ParseSolid( &solid, &g_SolidSetup );
+			// BSP 19 maps may temporarily omit unsupported trailing MOPP solids.
+			if ( solid.index < 0 || solid.index >= pWorldCollide->solidCount )
+				continue;
 			solid.params.enableCollisions = true;
 			solid.params.pGameData = static_cast<void *>(pWorld);
 			solid.params.pName = "world";
@@ -515,7 +518,7 @@ IPhysicsObject *PhysCreateWorld_Shared( CBaseEntity *pWorld, vcollide_t *pWorldC
 			pParse->ParseFluid( &fluid, NULL );
 
 			// create a fluid for floating
-			if ( fluid.index > 0 )
+			if ( fluid.index > 0 && fluid.index < pWorldCollide->solidCount )
 			{
 				solid.params = defaultParams;	// copy world's params
 				solid.params.enableCollisions = true;
