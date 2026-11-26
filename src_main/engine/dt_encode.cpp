@@ -12,6 +12,7 @@
 
 
 extern void DataTable_Warning( const char *pInMessage, ... );
+extern ConVar g_CV_DTWarning;
 extern bool ShouldWatchThisProp( int objectID, const char *pPropName );
 
 // The engine implements this.
@@ -68,7 +69,7 @@ static inline void EncodeFloat( const SendProp *pProp, float fVal, bf_write *pOu
 		// clamp < 0
 		ulVal = 0;
 		
-		if(!(pProp->GetFlags() & SPROP_ROUNDUP))
+		if( g_CV_DTWarning.GetBool() && !(pProp->GetFlags() & SPROP_ROUNDUP) )
 		{
 			DataTable_Warning("(class %s): Out-of-range value (%f) in SendPropFloat '%s', clamping.\n", GetObjectClassName( objectID ), fVal, pProp->m_pVarName );
 		}
@@ -78,9 +79,9 @@ static inline void EncodeFloat( const SendProp *pProp, float fVal, bf_write *pOu
 		// clamp > 1
 		ulVal = ((1 << pProp->m_nBits) - 1);
 
-		if(!(pProp->GetFlags() & SPROP_ROUNDDOWN))
+		if( g_CV_DTWarning.GetBool() && !(pProp->GetFlags() & SPROP_ROUNDDOWN) )
 		{
-			DataTable_Warning("%s: Out-of-range value (%f) in SendPropFloat '%s', clamping.\n", GetObjectClassName( objectID ), fVal, pProp->m_pVarName );
+			DataTable_Warning("(class %s): Out-of-range value (%f) in SendPropFloat '%s', clamping.\n", GetObjectClassName( objectID ), fVal, pProp->m_pVarName );
 		}
 	}
 	else

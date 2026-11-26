@@ -665,14 +665,14 @@ void SV_WriteClassInfos(ServerClass *pClasses, bf_write *pBuf)
 // This is implemented for the datatable code so its warnings can include an object's classname.
 const char* GetObjectClassName( int objectID )
 {
-	if ( objectID >= 0 && objectID < sv.num_edicts )
+	if ( objectID >= 0 && objectID < sv.num_edicts && sv.edicts[objectID].m_pEnt )
 	{
-		return STRING( sv.edicts[objectID].classname );
+		ServerClass *pClass = sv.edicts[objectID].m_pEnt->GetServerClass();
+		if ( pClass )
+			return pClass->GetName();
 	}
-	else
-	{
-		return "[unknown]";
-	}
+
+	return "[unknown]";
 }
 
 
