@@ -17,6 +17,7 @@
 // NOTE: MOved all controller code into c_basestudiomodel
 class C_AI_BaseNPC : public C_BaseCombatCharacter
 {
+protected:
 	DECLARE_CLASS( C_AI_BaseNPC, C_BaseCombatCharacter );
 
 public:

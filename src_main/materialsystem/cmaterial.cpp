@@ -280,7 +280,17 @@ private:
 
 // NOTE: This must be the last file included
 // Has to exist *after* fixed size allocator declaration
+#include "tier0/memalloc.h"
 #include "tier0/memdbgon.h"
+
+#if defined(_DEBUG) && defined(_MSC_VER) && _MSC_VER >= 1900
+#undef malloc
+#undef realloc
+#undef free
+#define malloc(size) g_pMemAlloc->Alloc((size), __FILE__, __LINE__)
+#define realloc(ptr, size) g_pMemAlloc->Realloc((ptr), (size), __FILE__, __LINE__)
+#define free(ptr) g_pMemAlloc->Free((ptr), __FILE__, __LINE__)
+#endif
 
 
 //-----------------------------------------------------------------------------

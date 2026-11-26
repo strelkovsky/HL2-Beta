@@ -377,7 +377,9 @@ private:
 	friend class CScriptedTarget; // needs to access GetInteractionID()
 	
 	static int					m_lastInteraction;	// Last registered interaction #
+protected:
 	static int					GetInteractionID();	// Returns the next interaction #
+private:
 	static Relationship_t**		m_DefaultRelationship;
 
 	bool		m_bOnFire;				// am I burning?

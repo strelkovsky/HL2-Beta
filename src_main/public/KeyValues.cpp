@@ -22,6 +22,8 @@
 #include "utlvector.h"
 #include "utlbuffer.h"
 
+#include "tier0/memalloc.h"
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
 
@@ -376,7 +378,12 @@ void KeyValues::UsesEscapeSequences(bool state)
 bool KeyValues::LoadFromFile( IBaseFileSystem *filesystem, const char *resourceName, const char *pathID )
 {
 	assert(filesystem);
+
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+	assert(g_pMemAlloc->heapchk() == _HEAPOK);
+#else
 	assert(_heapchk() == _HEAPOK);
+#endif
 
 	FileHandle_t f = filesystem->Open(resourceName, "rb", pathID);
 	if (!f)
@@ -639,7 +646,7 @@ KeyValues *KeyValues::FindKey(const char *keyName, bool bCreate)
 
 	// look for '/' characters deliminating sub fields
 	char szBuf[256];
-	char *subStr = strchr(keyName, '/');
+	const char *subStr = strchr(keyName, '/');
 	const char *searchStr = keyName;
 
 	// pull out the substring if it exists

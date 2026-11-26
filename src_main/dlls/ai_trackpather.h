@@ -19,6 +19,7 @@ class CPathTrack;
 
 class CAI_TrackPather : public CAI_BaseNPC
 {
+protected:
 	DECLARE_CLASS( CAI_TrackPather, CAI_BaseNPC );
 	DECLARE_DATADESC();
 public:

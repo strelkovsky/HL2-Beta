@@ -1682,7 +1682,7 @@ void MIX_ScaleChannelVolume( paintbuffer_t *ppaint, channel_t *pChannel, int vol
 // Low level mixing routines
 //===============================================================================
 
-#if	!id386
+#if !id386 || (defined(_MSC_VER) && _MSC_VER >= 1900)
 void Snd_WriteLinearBlastStereo16 (void)
 {
 	int		i;
@@ -1719,7 +1719,7 @@ void SND_InitScaletable (void)
 			snd_scaletable[i][j] = ((signed char)j) * i * (1<<SND_SCALE_SHIFT);
 }
 
-#if	!id386
+#if !id386 || (defined(_MSC_VER) && _MSC_VER >= 1900)
 void SND_PaintChannelFrom8( int *volume, byte *pData8, int count )
 {
 	int 	data;

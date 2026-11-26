@@ -334,6 +334,10 @@ void CDbgMemAlloc::GetActualDbgInfo( const char *&pFileName, int &nLine )
 //-----------------------------------------------------------------------------
 CDbgMemAlloc::MemInfo_t &CDbgMemAlloc::FindOrCreateEntry( const char *pFileName, int line )
 {
+	// Modern CRT debug allocations may not have source-file information.
+	if (!pFileName)
+		pFileName = pUnknown;
+
 	// Oh how I love crazy STL. retval.first == the StatMapIter_t in the std::pair
 	// retval.first->second == the MemInfo_t that's part of the StatMapIter_t 
 	std::pair<StatMapIter_t, bool> retval;

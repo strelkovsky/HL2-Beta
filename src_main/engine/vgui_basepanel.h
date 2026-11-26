@@ -28,6 +28,7 @@
 //-----------------------------------------------------------------------------
 class CBasePanel : public vgui::Panel
 {
+protected:
 	typedef vgui::Panel BaseClass;
 
 public:

@@ -14,6 +14,7 @@
 #include "quakedef.h"
 #include "conprint.h"
 #include <stdlib.h>
+#include <ctype.h>
 #include "filesystem.h"
 #include "filesystem_engine.h"
 

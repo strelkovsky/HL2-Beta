@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{06814FC3-B3E8-560F-BB31-D1771E84DC5E}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>GameUI</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\vgui2\include;..\vgui2\controls;..\public;..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_MBCS;_USRDLL;GAMEUI_EXPORTS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vgui_controls.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;legacy_stdio_definitions.lib;gdi32.lib;kernel32.lib;user32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>LIBC;LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\public;..\common;..\hltv\common;..\tracker\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;GAMEUI_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vgui_controls.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;legacy_stdio_definitions.lib;Shlwapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>LIBC;LIBCD;LIBCMTD;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\public\KeyValues.cpp" />
+    <ClCompile Include=".\BackgroundMenuButton.cpp" />
+    <ClCompile Include=".\BasePanel.cpp" />
+    <ClCompile Include=".\ChangeGameDialog.cpp" />
+    <ClCompile Include="..\public\checksum_md5.cpp" />
+    <ClCompile Include="..\public\convar.cpp" />
+    <ClCompile Include=".\CreateMultiplayerGameBotPage.cpp" />
+    <ClCompile Include=".\CreateMultiplayerGameDialog.cpp" />
+    <ClCompile Include=".\CreateMultiplayerGameGameplayPage.cpp" />
+    <ClCompile Include=".\CreateMultiplayerGameServerPage.cpp" />
+    <ClCompile Include=".\GameConsole.cpp" />
+    <ClCompile Include=".\GameUI_Interface.cpp" />
+    <ClCompile Include="..\public\interface.cpp" />
+    <ClCompile Include=".\LoadingDialog.cpp" />
+    <ClCompile Include=".\LogoFile.cpp" />
+    <ClCompile Include=".\ModInfo.cpp" />
+    <ClCompile Include="..\Tracker\common\msgbuffer.cpp" />
+    <ClCompile Include="..\Tracker\common\netapi.cpp" />
+    <ClCompile Include="..\common\GameUI\ObjectList.cpp" />
+    <ClCompile Include="..\common\GameUI\Random.cpp" />
+    <ClCompile Include=".\RunGameEngine.cpp" />
+    <ClCompile Include=".\ScriptObject.cpp" />
+    <ClCompile Include="..\Tracker\common\Socket.cpp" />
+    <ClCompile Include=".\Sys_Utils.cpp" />
+    <ClCompile Include=".\Taskbar.cpp" />
+    <ClCompile Include=".\TaskButton.cpp" />
+    <ClInclude Include=".\TaskButton.h" />
+    <ClCompile Include="..\public\UtlBuffer.cpp" />
+    <ClCompile Include="..\public\utlsymbol.cpp" />
+    <ClCompile Include=".\VGuiSystemModuleLoader.cpp" />
+    <ClInclude Include=".\VGuiSystemModuleLoader.h" />
+    <ClInclude Include=".\BackgroundMenuButton.h" />
+    <ClInclude Include=".\BasePanel.h" />
+    <ClInclude Include=".\ChangeGameDialog.h" />
+    <ClInclude Include=".\CreateMultiplayerGameDialog.h" />
+    <ClInclude Include=".\CreateMultiplayerGameGameplayPage.h" />
+    <ClInclude Include=".\CreateMultiplayerGameServerPage.h" />
+    <ClInclude Include=".\DemoEditDialog.h" />
+    <ClInclude Include=".\DemoEventsDialog.h" />
+    <ClInclude Include=".\DemoPlayerDialog.h" />
+    <ClInclude Include=".\DemoPlayerFileDialog.h" />
+    <ClInclude Include=".\GameConsole.h" />
+    <ClInclude Include=".\GameUI_Interface.h" />
+    <ClInclude Include="..\public\BaseUI\IBaseUI.h" />
+    <ClInclude Include="..\public\cl_dll\IGameClientExports.h" />
+    <ClInclude Include="..\public\BaseUI\IGameConsole.h" />
+    <ClInclude Include="..\common\GameUI\IGameUI.h" />
+    <ClInclude Include="..\public\interface.h" />
+    <ClInclude Include="..\common\IObjectContainer.h" />
+    <ClInclude Include="..\common\IRunGameEngine.h" />
+    <ClInclude Include="..\common\IVGuiModule.h" />
+    <ClInclude Include="..\common\IVGuiModuleLoader.h" />
+    <ClInclude Include=".\LoadingDialog.h" />
+    <ClInclude Include="..\vgui2\src\Memorybitmap.h" />
+    <ClInclude Include=".\ModInfo.h" />
+    <ClInclude Include="..\common\GameUI\ObjectList.h" />
+    <ClInclude Include="..\common\GameUI\Random.h" />
+    <ClInclude Include=".\ScriptObject.h" />
+    <ClInclude Include=".\Sys_Utils.h" />
+    <ClInclude Include=".\Taskbar.h" />
+    <ClInclude Include=".\taskframe.h" />
+    <ClInclude Include="..\Tracker\common\TrackerMessageFlags.h" />
+    <ClCompile Include=".\BitmapImagePanel.cpp" />
+    <ClInclude Include=".\BitmapImagePanel.h" />
+    <ClCompile Include=".\CommandCheckButton.cpp" />
+    <ClInclude Include=".\CommandCheckButton.h" />
+    <ClCompile Include=".\CvarNegateCheckButton.cpp" />
+    <ClInclude Include=".\CvarNegateCheckButton.h" />
+    <ClCompile Include=".\CvarSlider.cpp" />
+    <ClInclude Include=".\CvarSlider.h" />
+    <ClCompile Include=".\CvarTextEntry.cpp" />
+    <ClInclude Include=".\CvarTextEntry.h" />
+    <ClCompile Include=".\CvarToggleCheckButton.cpp" />
+    <ClInclude Include=".\CvarToggleCheckButton.h" />
+    <ClCompile Include=".\KeyToggleCheckButton.cpp" />
+    <ClInclude Include=".\KeyToggleCheckButton.h" />
+    <ClCompile Include=".\LabeledCommandComboBox.cpp" />
+    <ClInclude Include=".\LabeledCommandComboBox.h" />
+    <ClCompile Include=".\PanelListPanel.cpp" />
+    <ClInclude Include=".\PanelListPanel.h" />
+    <ClCompile Include=".\vcontrolslistpanel.cpp" />
+    <ClInclude Include=".\vcontrolslistpanel.h" />
+    <ClCompile Include=".\ContentControlDialog.cpp" />
+    <ClInclude Include=".\ContentControlDialog.h" />
+    <ClCompile Include=".\GameConsoleDialog.cpp" />
+    <ClInclude Include=".\GameConsoleDialog.h" />
+    <ClCompile Include=".\HelpDialog.cpp" />
+    <ClInclude Include=".\HelpDialog.h" />
+    <ClCompile Include=".\LoadGameDialog.cpp" />
+    <ClInclude Include=".\LoadGameDialog.h" />
+    <ClCompile Include=".\MultiplayerAdvancedDialog.cpp" />
+    <ClInclude Include=".\MultiplayerAdvancedDialog.h" />
+    <ClCompile Include=".\NewGameDialog.cpp" />
+    <ClInclude Include=".\NewGameDialog.h" />
+    <ClCompile Include=".\PlayerListDialog.cpp" />
+    <ClInclude Include=".\PlayerListDialog.h" />
+    <ClCompile Include=".\SaveGameDialog.cpp" />
+    <ClInclude Include=".\SaveGameDialog.h" />
+    <ClCompile Include=".\SteamPasswordDialog.cpp" />
+    <ClInclude Include=".\SteamPasswordDialog.h" />
+    <ClCompile Include=".\OptionsDialog.cpp" />
+    <ClInclude Include=".\OptionsDialog.h" />
+    <ClCompile Include=".\OptionsSubAdvanced.cpp" />
+    <ClInclude Include=".\OptionsSubAdvanced.h" />
+    <ClCompile Include=".\OptionsSubAudio.cpp" />
+    <ClInclude Include=".\OptionsSubAudio.h" />
+    <ClCompile Include=".\OptionsSubKeyboard.cpp" />
+    <ClInclude Include=".\OptionsSubKeyboard.h" />
+    <ClCompile Include=".\OptionsSubMouse.cpp" />
+    <ClInclude Include=".\OptionsSubMouse.h" />
+    <ClCompile Include=".\OptionsSubMultiplayer.cpp" />
+    <ClInclude Include=".\OptionsSubMultiplayer.h" />
+    <ClCompile Include=".\OptionsSubVideo.cpp" />
+    <ClInclude Include=".\OptionsSubVideo.h" />
+    <ClCompile Include=".\OptionsSubVoice.cpp" />
+    <ClInclude Include=".\OptionsSubVoice.h" />
+    <None Include="..\lib\public\vgui_controls.lib" />
+    <None Include="..\lib\public\tier0.lib" />
+    <None Include="..\lib\public\vstdlib.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\vgui2\controls\vgui_controls.vcxproj">
+      <Project>{AEC4BA89-DCEE-59CB-BE01-F80811318D9D}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="..\HL2_Output.props" />
+  <Target Name="PublishGameUIToMods" AfterTargets="Build" Condition="Exists('$(TargetPath)')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl2\bin\GameUI.dll" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)tf2\bin\GameUI.dll" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)hl1\bin\GameUI.dll" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(HL2OutputRoot)cstrike\bin\GameUI.dll" SkipUnchangedFiles="true" />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -33,6 +33,7 @@
 
 
 // NOTE: I have to include stdio + stdarg first so vsnprintf gets compiled in
+#include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
 #ifdef _LINUX
@@ -136,7 +137,7 @@ char *_Q_strstr(const char* file, int line,  const char *s1, const char *search 
 	AssertValidStringPtr( s1 );
 	AssertValidStringPtr( search );
 
-	return strstr( s1, search );
+	return const_cast<char*>(strstr(s1, search));
 }
 
 char *_Q_strupr (const char* file, int line, char *start)

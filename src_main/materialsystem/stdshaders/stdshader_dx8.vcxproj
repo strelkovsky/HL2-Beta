@@ -1,0 +1,307 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5D2926F2-8E96-5CF1-96AE-CB0B4781B645}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>stdshader_dx8</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\common;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX8_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\common;..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX8_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\alienscale_dx8.cpp" />
+    <ClCompile Include=".\basetimeslightmapwet.cpp" />
+    <ClCompile Include=".\BaseVSShader.cpp" />
+    <ClInclude Include=".\BaseVSShader.h" />
+    <ClCompile Include="..\..\public\bumpvects.cpp" />
+    <ClCompile Include=".\cable.cpp" />
+    <ClCompile Include=".\eyes.cpp" />
+    <ClCompile Include=".\gooinglass.cpp" />
+    <ClCompile Include=".\jellyfish.cpp" />
+    <ClCompile Include=".\jojirium.cpp" />
+    <ClCompile Include=".\lightmappedgeneric_dx8.cpp" />
+    <ClCompile Include="..\..\public\mathlib.cpp" />
+    <ClCompile Include="..\..\public\tier0\memoverride.cpp" />
+    <ClCompile Include=".\modulate.cpp" />
+    <ClCompile Include=".\overlay_fit.cpp" />
+    <ClCompile Include=".\particlesphere.cpp" />
+    <ClCompile Include=".\predator.cpp" />
+    <ClCompile Include=".\refract_dx80.cpp" />
+    <ClCompile Include=".\shadow_dx8.cpp" />
+    <ClCompile Include=".\shadowbuild.cpp" />
+    <ClCompile Include=".\shadowmodel.cpp" />
+    <ClCompile Include=".\sprite.cpp" />
+    <ClCompile Include=".\teeth_dx8.cpp" />
+    <ClCompile Include=".\unlitgeneric_dx8.cpp" />
+    <ClCompile Include=".\unlittwotexture.cpp" />
+    <ClCompile Include=".\vertexlitgeneric_dx8.cpp" />
+    <ClCompile Include="..\..\public\vmatrix.cpp" />
+    <ClCompile Include=".\water_dx80.cpp" />
+    <ClCompile Include=".\water_dx81.cpp" />
+    <ClCompile Include=".\worldvertexalpha_dx8.cpp" />
+    <ClCompile Include=".\WorldVertexTransition_dx8.cpp" />
+    <ClCompile Include=".\writez.cpp" />
+    <ClCompile Include=".\yuv.cpp" />
+    <None Include=".\lightmappedgeneric_inc.vsh" />
+    <None Include=".\macros.vsh" />
+    <None Include=".\unlitgeneric_inc.vsh" />
+    <None Include=".\unlittwotexture_inc.vsh" />
+    <None Include=".\vertexlitgeneric_inc.vsh" />
+    <None Include=".\BaseTimesLightmapWet.vsh" />
+    <None Include=".\BumpmappedEnvmap.vsh" />
+    <None Include=".\Cable.vsh" />
+    <None Include=".\Eyes.vsh" />
+    <None Include=".\glowwarp.vsh" />
+    <None Include=".\HotSpotGlow.vsh" />
+    <None Include=".\JellyFish.vsh" />
+    <None Include=".\Jojirium.vsh" />
+    <None Include=".\LightmappedGeneric.vsh" />
+    <None Include=".\LightmappedGeneric_BaseTexture.vsh" />
+    <None Include=".\LightmappedGeneric_BumpmappedEnvmap.vsh" />
+    <None Include=".\LightmappedGeneric_BumpmappedEnvmap_ps14.vsh" />
+    <None Include=".\LightmappedGeneric_BumpmappedLightmap.vsh" />
+    <None Include=".\LightmappedGeneric_Detail.vsh" />
+    <None Include=".\LightmappedGeneric_DetailVertexColor.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMap.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMapCameraSpace.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMapCameraSpaceVertexColor.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMapSphere.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMapSphereVertexColor.vsh" />
+    <None Include=".\LightmappedGeneric_EnvMapVertexColor.vsh" />
+    <None Include=".\LightmappedGeneric_VertexColor.vsh" />
+    <None Include=".\LightmappedGeneric_BaseTextureBlend.vsh" />
+    <None Include=".\LightmappedTranslucentTexture.vsh" />
+    <None Include=".\ParticleSphere.vsh" />
+    <None Include=".\predator.vsh" />
+    <None Include=".\ScreenSpaceEffect.vsh" />
+    <None Include=".\shadow_vs14.vsh" />
+    <None Include=".\shadow_ps14.psh" />
+    <None Include=".\ShadowModel.vsh" />
+    <None Include=".\Teeth.vsh" />
+    <None Include=".\UnlitGeneric.vsh" />
+    <None Include=".\UnlitGeneric_Detail.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMap.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapCameraSpace.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapCameraSpaceVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapSphere.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapSphereVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_DetailVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_EnvMap.vsh" />
+    <None Include=".\UnlitGeneric_EnvMapCameraSpace.vsh" />
+    <None Include=".\UnlitGeneric_EnvMapCameraSpaceVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_EnvMapSphere.vsh" />
+    <None Include=".\UnlitGeneric_EnvMapSphereVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_EnvMapVertexColor.vsh" />
+    <None Include=".\UnlitGeneric_LightingOnlyWorld.vsh" />
+    <None Include=".\UnlitGeneric_VertexColor.vsh" />
+    <None Include=".\UnlitTwoTexture.vsh" />
+    <None Include=".\UnlitTwoTexture_VertexColor.vsh" />
+    <None Include=".\VertexLitEnvMappedTexture.vsh" />
+    <None Include=".\VertexLitEnvMappedTexture_CameraSpace.vsh" />
+    <None Include=".\VertexLitEnvMappedTexture_SphereMap.vsh" />
+    <None Include=".\VertexLitGeneric_Detail.vsh" />
+    <None Include=".\VertexLitGeneric_DetailEnvMap.vsh" />
+    <None Include=".\VertexLitGeneric_DetailEnvMapCameraSpace.vsh" />
+    <None Include=".\VertexLitGeneric_DetailEnvMapSphere.vsh" />
+    <None Include=".\VertexLitGeneric_DiffBumpTimesBase.vsh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmap_NoLighting.vsh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmap_NoLighting_ps14.vsh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmap_VertLit.vsh" />
+    <None Include=".\VertexLitGeneric_SelfIllumOnly.vsh" />
+    <None Include=".\VertexLitTexture.vsh" />
+    <None Include=".\Water_vs11.vsh" />
+    <None Include=".\Water_ps14.vsh" />
+    <None Include=".\WorldTexture.vsh" />
+    <None Include=".\WorldVertexAlpha.vsh" />
+    <None Include=".\WorldVertexTransition.vsh" />
+    <None Include=".\WorldVertexTransition_Micros.vsh" />
+    <None Include=".\writez.vsh" />
+    <None Include=".\WriteZWithHeightClipPlane.vsh" />
+    <None Include=".\WriteZWithHeightClipPlane_World.vsh" />
+    <None Include=".\alienscale_vs11.vsh" />
+    <None Include=".\alienscale_vs14.vsh" />
+    <None Include=".\overlay_fit_vs11.vsh" />
+    <None Include=".\Refract_model_vs11.vsh" />
+    <None Include=".\Refract_world_vs11.vsh" />
+    <None Include=".\WaterCheap_vs11.vsh" />
+    <None Include=".\WaterCheap_vs14.vsh" />
+    <None Include=".\alienscale_ps11.psh" />
+    <None Include=".\alienscale_overbright2_ps11.psh" />
+    <None Include=".\alienscale_ps14.psh" />
+    <None Include=".\alienscale_overbright2_ps14.psh" />
+    <None Include=".\Modulate_ps11.psh" />
+    <None Include=".\overlay_fit_ps11.psh" />
+    <None Include=".\Refract_ps11.psh" />
+    <None Include=".\WaterCheap_ps11.psh" />
+    <None Include=".\WaterCheap_ps14.psh" />
+    <None Include=".\BaseTimesLightmapWet.psh" />
+    <None Include=".\BumpmappedEnvmap.psh" />
+    <None Include=".\BumpmappedLightmap_OverBright1.psh" />
+    <None Include=".\BumpmappedLightmap_OverBright2.psh" />
+    <None Include=".\Cable.psh" />
+    <None Include=".\Eyes.psh" />
+    <None Include=".\Eyes_Overbright2.psh" />
+    <None Include=".\JellyFish.psh" />
+    <None Include=".\LightmappedGeneric.psh" />
+    <None Include=".\LightmappedGeneric_BaseAlphaMaskedEnvMapV2.psh" />
+    <None Include=".\LightmappedGeneric_BaseTexture.psh" />
+    <None Include=".\lightmappedgeneric_basetextureblend.psh" />
+    <None Include=".\LightmappedGeneric_BumpmappedEnvmap.psh" />
+    <None Include=".\LightmappedGeneric_BumpmappedEnvmap_ps14.psh" />
+    <None Include=".\LightmappedGeneric_BumpmappedLightmap.psh" />
+    <None Include=".\LightmappedGeneric_Detail.psh" />
+    <None Include=".\LightmappedGeneric_DetailNoTexture.psh" />
+    <None Include=".\LightmappedGeneric_DetailSelfIlluminated.psh" />
+    <None Include=".\LightmappedGeneric_EnvMapNoTexture.psh" />
+    <None Include=".\LightmappedGeneric_EnvMapV2.psh" />
+    <None Include=".\LightmappedGeneric_MaskedEnvMapNoTexture.psh" />
+    <None Include=".\LightmappedGeneric_MaskedEnvMapV2.psh" />
+    <None Include=".\LightmappedGeneric_MultiplyByLighting.psh" />
+    <None Include=".\LightmappedGeneric_MultiplyByLightingNoTexture.psh" />
+    <None Include=".\LightmappedGeneric_MultiplyByLightingSelfIllum.psh" />
+    <None Include=".\LightmappedGeneric_NoTexture.psh" />
+    <None Include=".\LightmappedGeneric_SelfIlluminated.psh" />
+    <None Include=".\LightmappedGeneric_SelfIlluminatedEnvMapV2.psh" />
+    <None Include=".\LightmappedGeneric_SelfIlluminatedMaskedEnvMapV2.psh" />
+    <None Include=".\LightmappedTranslucentTexture.psh" />
+    <None Include=".\predator.psh" />
+    <None Include=".\Shadow.psh" />
+    <None Include=".\ShadowBuildTexture.psh" />
+    <None Include=".\ShadowModel.psh" />
+    <None Include=".\SpriteRenderNormal.psh" />
+    <None Include=".\SpriteRenderTransColor.psh" />
+    <None Include=".\SpriteRenderTransAdd.psh" />
+    <None Include=".\UnlitGeneric.psh" />
+    <None Include=".\UnlitGeneric_BaseAlphaMaskedEnvMap.psh" />
+    <None Include=".\UnlitGeneric_Detail.psh" />
+    <None Include=".\UnlitGeneric_DetailBaseAlphaMaskedEnvMap.psh" />
+    <None Include=".\UnlitGeneric_DetailEnvMap.psh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapMask.psh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapMaskNoTexture.psh" />
+    <None Include=".\UnlitGeneric_DetailEnvMapNoTexture.psh" />
+    <None Include=".\UnlitGeneric_DetailNoTexture.psh" />
+    <None Include=".\UnlitGeneric_EnvMap.psh" />
+    <None Include=".\UnlitGeneric_EnvMapMask.psh" />
+    <None Include=".\UnlitGeneric_EnvMapMaskNoTexture.psh" />
+    <None Include=".\UnlitGeneric_EnvMapNoTexture.psh" />
+    <None Include=".\UnlitGeneric_NoTexture.psh" />
+    <None Include=".\UnlitTwoTexture.psh" />
+    <None Include=".\VertexLitGeneric.psh" />
+    <None Include=".\VertexLitGeneric_BaseAlphaMaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_Detail.psh" />
+    <None Include=".\VertexLitGeneric_DetailBaseAlphaMaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_DetailEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_DetailMaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_DetailNoTexture.psh" />
+    <None Include=".\VertexLitGeneric_DetailSelfIlluminated.psh" />
+    <None Include=".\VertexLitGeneric_DetailSelfIlluminatedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_DetailSelfIlluminatedMaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpLightingOnly_Overbright1.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpLightingOnly_Overbright2.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpTimesBase_Overbright1.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpTimesBase_Overbright1_Translucent.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpTimesBase_Overbright2.psh" />
+    <None Include=".\VertexLitGeneric_DiffBumpTimesBase_Overbright2_Translucent.psh" />
+    <None Include=".\VertexLitGeneric_EnvMapNoTexture.psh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmapV2.psh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmapV2_MultByAlpha.psh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmapV2_MultByAlpha_ps14.psh" />
+    <None Include=".\VertexLitGeneric_EnvmappedBumpmapV2_ps14.psh" />
+    <None Include=".\VertexLitGeneric_EnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_MaskedEnvMapNoTexture.psh" />
+    <None Include=".\VertexLitGeneric_MaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_NoTexture.psh" />
+    <None Include=".\VertexLitGeneric_SelfIlluminated.psh" />
+    <None Include=".\VertexLitGeneric_SelfIlluminatedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_SelfIlluminatedMaskedEnvMapV2.psh" />
+    <None Include=".\VertexLitGeneric_SelfIllumOnly.psh" />
+    <None Include=".\VertexLitTexture.psh" />
+    <None Include=".\VertexLitTexture_Overbright2.psh" />
+    <None Include=".\WaterReflect_ps11.psh" />
+    <None Include=".\WaterRefract_ps11.psh" />
+    <None Include=".\Water_ps14.psh" />
+    <None Include=".\white.psh" />
+    <None Include=".\WorldTexture.psh" />
+    <None Include=".\WorldVertexAlpha.psh" />
+    <None Include=".\WorldVertexTransition.psh" />
+    <None Include=".\WorldVertexTransition_Micros.psh" />
+    <None Include=".\WorldVertexTransition_Micros_EditMode.psh" />
+    <None Include=".\WorldVertexTransition_BlendBase2.psh" />
+    <None Include=".\WriteEnvMapMaskToAlphaBuffer.psh" />
+    <None Include=".\WriteZWithHeightClipPlane.psh" />
+    <None Include=".\yuv.psh" />
+    <None Include="..\..\devtools\bin\psh_prep.pl" />
+    <ClCompile Include=".\stdshader_dx8.cpp" />
+    <None Include=".\stdshader_dx8.txt" />
+    <None Include="..\..\devtools\bin\vsh_prep.pl" />
+    <None Include="..\..\lib\public\vstdlib.lib" />
+    <None Include="..\..\lib\public\shaderlib.lib" />
+    <None Include="..\..\lib\public\tier0.lib" />
+  </ItemGroup>
+  <Import Project="..\..\HL2_Output.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

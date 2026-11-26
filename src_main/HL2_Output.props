@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- The output directory is a game root: executables live here, engine DLLs in bin. -->
+  <PropertyGroup>
+    <HL2OutputRoot>$(MSBuildThisFileDirectory)..\build\</HL2OutputRoot>
+    <OutDir Condition="'$(ConfigurationType)' == 'Application'">$(HL2OutputRoot)</OutDir>
+    <OutDir Condition="'$(ConfigurationType)' == 'DynamicLibrary'">$(HL2OutputRoot)bin\</OutDir>
+    <OutDir Condition="'$(ConfigurationType)' == 'StaticLibrary'">$(HL2OutputRoot)lib\$(Configuration)\</OutDir>
+    <!-- The migrated client and server projects currently select HL2 only. -->
+    <OutDir Condition="'$(MSBuildProjectName)' == 'client' Or '$(MSBuildProjectName)' == 'hl'">$(HL2OutputRoot)hl2\bin\</OutDir>
+    <TargetName Condition="'$(MSBuildProjectName)' == 'launcher_main'">hl2</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(ConfigurationType)' == 'DynamicLibrary'">
+    <Link>
+      <ImportLibrary>$(HL2OutputRoot)lib\$(Configuration)\$(TargetName).lib</ImportLibrary>
+    </Link>
+  </ItemDefinitionGroup>
+  <Target Name="PrepareHL2OutputDirectories" BeforeTargets="PrepareForBuild">
+    <MakeDir Directories="$(HL2OutputRoot);$(HL2OutputRoot)bin;$(HL2OutputRoot)lib\$(Configuration);$(HL2OutputRoot)hl2\bin;$(HL2OutputRoot)tf2\bin;$(HL2OutputRoot)hl1\bin;$(HL2OutputRoot)cstrike\bin" />
+  </Target>
+  <!-- Both names were published from launcher_main by the original DSP. -->
+  <Target Name="PublishTF2Launcher" AfterTargets="Build" Condition="'$(MSBuildProjectName)' == 'launcher_main' And Exists('$(TargetPath)')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(OutDir)tf2.exe" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

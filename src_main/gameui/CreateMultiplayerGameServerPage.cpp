@@ -127,16 +127,17 @@ void CCreateMultiplayerGameServerPage::LoadMapList()
 		// remove the text 'maps/' and '.bsp' from the file name to get the map name
 		char mapname[256];
 		
-		char *str = strstr(filename, "maps");
-		if (str)
+		const char* mapStart = strstr(filename, "maps");
+		if (mapStart)
 		{
-			strncpy(mapname, str + 5, sizeof(mapname) - 1);	// maps + \\ = 5
+			strncpy(mapname, mapStart + 5, sizeof(mapname) - 1);	// maps + \\ = 5
 		}
 		else
 		{
 			strncpy(mapname, filename, sizeof(mapname) - 1);
 		}
-		str = strstr(mapname, ".bsp");
+		mapname[sizeof(mapname) - 1] = '\0';
+		char* str = strstr(mapname, ".bsp");
 		if (str)
 		{
 			*str = 0;

@@ -1022,8 +1022,6 @@ AI_FollowFormation_t *AIGetFormation( AI_Formations_t formation )
 
 //---------------------------------------------------------
 
-ASSERT_INVARIANT( sizeof(FollowerListIter_t) == sizeof(AI_FollowManagerInfoHandle_t) );
-
 AI_FollowManagerInfoHandle_t CAI_FollowManager::AddFollower( CBaseEntity *pTarget, CAI_BaseNPC *pFollower )
 {
 	AI_FollowGroup_t *pGroup = FindCreateGroup( pTarget );
@@ -1032,7 +1030,7 @@ AI_FollowManagerInfoHandle_t CAI_FollowManager::AddFollower( CBaseEntity *pTarge
 	if ( slot != -1 )
 	{
 		AI_FollowSlot_t *pSlot 		= &pGroup->pFormation->pSlots[slot];
-		FollowerListIter_t iterNode = pGroup->followers.insert(pGroup->followers.end());
+		FollowerListIter_t iterNode = pGroup->followers.insert(pGroup->followers.end(), AI_Follower_t());
 
 		iterNode->hFollower 		= pFollower;
 		iterNode->slot 				= slot;

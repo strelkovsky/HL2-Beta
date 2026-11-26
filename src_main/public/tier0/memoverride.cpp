@@ -359,8 +359,11 @@ int _CrtSetDbgFlag( int nNewFlag )
 	return g_pMemAlloc->CrtSetDbgFlag( nNewFlag );
 }
 
+// UCRT exposes these names through accessor macros; it owns their storage.
+#if !defined(_MSC_VER) || _MSC_VER < 1900
 long _crtBreakAlloc;      /* Break on this allocation */
 int _crtDbgFlag = _CRTDBG_ALLOC_MEM_DF;
+#endif
 
 void __cdecl _CrtSetDbgBlockType( void *pMem, int nBlockUse )
 {

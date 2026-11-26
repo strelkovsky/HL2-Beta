@@ -101,13 +101,9 @@ DECLARE_FIELD_SIZE( FIELD_MATRIX3X4_WORLDSPACE,	12 * sizeof(float))
 DECLARE_FIELD_SIZE( FIELD_INTERVAL,		2 * sizeof( float) )  // NOTE:  Must match interval.h definition
 
 
-#ifndef offsetof
-#define offsetof(s,m)	(size_t)&(((s *)0)->m)
-#endif
+#define DATAMAP_OFFSET(s,m) ((size_t)&(((s *)0)->m))
 
-#define ARRAYSIZE2D(p)		(sizeof(p)/sizeof(p[0][0]))
-
-#define _FIELD(type,name,fieldtype,count,flags,mapname,tolerance)		{ fieldtype, #name, { offsetof(type, name), 0 }, count, flags, mapname, NULL, NULL, NULL, sizeof( ((type *)0)->name ), NULL, 0, tolerance }
+#define _FIELD(type,name,fieldtype,count,flags,mapname,tolerance)		{ fieldtype, #name, { DATAMAP_OFFSET(type, name), 0 }, count, flags, mapname, NULL, NULL, NULL, sizeof( ((type *)0)->name ), NULL, 0, tolerance }
 #define DEFINE_FIELD(type,name,fieldtype)			_FIELD(type, name, fieldtype, 1, FTYPEDESC_SAVE, NULL, 0 )
 #define DEFINE_KEYFIELD(type,name,fieldtype,mapname) _FIELD(type, name, fieldtype, 1, FTYPEDESC_KEY | FTYPEDESC_SAVE, mapname, 0 )
 #define DEFINE_KEYFIELD_NOT_SAVED(type,name,fieldtype,mapname)_FIELD(type, name, fieldtype, 1, FTYPEDESC_KEY, mapname, 0 )
@@ -117,30 +113,30 @@ DECLARE_FIELD_SIZE( FIELD_INTERVAL,		2 * sizeof( float) )  // NOTE:  Must match 
 #define DEFINE_ENTITY_GLOBAL_FIELD(name,fieldtype)	_FIELD(edict_t, name, fieldtype, 1, FTYPEDESC_KEY | FTYPEDESC_SAVE | FTYPEDESC_GLOBAL, #name, 0 )
 #define DEFINE_GLOBAL_FIELD(type,name,fieldtype)	_FIELD(type, name, fieldtype, 1, FTYPEDESC_GLOBAL | FTYPEDESC_SAVE, NULL, 0 )
 #define DEFINE_GLOBAL_KEYFIELD(type,name,fieldtype,mapname)	_FIELD(type, name, fieldtype, 1, FTYPEDESC_GLOBAL | FTYPEDESC_KEY | FTYPEDESC_SAVE, mapname, 0 )
-#define DEFINE_CUSTOM_FIELD(type,name,datafuncs)	{ FIELD_CUSTOM, #name, { offsetof(type,name), 0 }, 1, FTYPEDESC_SAVE, NULL, datafuncs, NULL }
-#define DEFINE_CUSTOM_KEYFIELD(type,name,datafuncs,mapname)	{ FIELD_CUSTOM, #name, { offsetof(type,name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_KEY, mapname, datafuncs, NULL }
-#define DEFINE_AUTO_ARRAY2D(type,name,fieldtype)		_FIELD(type, name, fieldtype, ARRAYSIZE2D(((type *)0)->name), FTYPEDESC_SAVE, NULL, 0 )
+#define DEFINE_CUSTOM_FIELD(type,name,datafuncs)	{ FIELD_CUSTOM, #name, { DATAMAP_OFFSET(type,name), 0 }, 1, FTYPEDESC_SAVE, NULL, datafuncs, NULL }
+#define DEFINE_CUSTOM_KEYFIELD(type,name,datafuncs,mapname)	{ FIELD_CUSTOM, #name, { DATAMAP_OFFSET(type,name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_KEY, mapname, datafuncs, NULL }
+#define DEFINE_AUTO_ARRAY2D(type,name,fieldtype)		_FIELD(type, name, fieldtype, (sizeof(((type *)0)->name) / sizeof(((type *)0)->name[0][0])), FTYPEDESC_SAVE, NULL, 0 )
 
 #define DEFINE_EMBEDDED( type, name )						\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name.m_DataMap), sizeof( ((type *)0)->name ), NULL, 0, 0.0f }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name.m_DataMap), sizeof( ((type *)0)->name ), NULL, 0, 0.0f }
 
 #define DEFINE_EMBEDDED_OVERRIDE( type, name, overridetype )	\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &((overridetype *)0)->m_DataMap, sizeof( ((type *)0)->name ), NULL, 0, 0.0f }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &((overridetype *)0)->m_DataMap, sizeof( ((type *)0)->name ), NULL, 0, 0.0f }
 
 #define DEFINE_EMBEDDEDBYREF( type, name )					\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( *(((type *)0)->name) ), NULL, 0, 0.0f }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( *(((type *)0)->name) ), NULL, 0, 0.0f }
 
 #define DEFINE_EMBEDDED_ARRAY( type, name, count )			\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, count, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( ((type *)0)->name[0] ), NULL, 0, 0.0f  }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, count, FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( ((type *)0)->name[0] ), NULL, 0, 0.0f  }
 
 #define DEFINE_EMBEDDED_AUTO_ARRAY( type, name )			\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, ARRAYSIZE( ((type *)0)->name ), FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( ((type *)0)->name[0] ), NULL, 0, 0.0f  }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, ARRAYSIZE( ((type *)0)->name ), FTYPEDESC_SAVE, NULL, NULL, NULL, &(((type *)0)->name->m_DataMap), sizeof( ((type *)0)->name[0] ), NULL, 0, 0.0f  }
 
 #define DEFINE_PRED_TYPEDESCRIPTION( type, name, fieldtype )						\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &fieldtype::m_PredMap }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_SAVE, NULL, NULL, NULL, &fieldtype::m_PredMap }
 
 #define DEFINE_PRED_TYPEDESCRIPTION_PTR( type, name, fieldtype )						\
-	{ FIELD_EMBEDDED, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &fieldtype::m_PredMap }
+	{ FIELD_EMBEDDED, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_SAVE | FTYPEDESC_PTR, NULL, NULL, NULL, &fieldtype::m_PredMap }
 
 // Extensions to datamap.h macros for predicted entities only
 #define DEFINE_PRED_FIELD(type,name,fieldtype,flags)			_FIELD(type, name, fieldtype, 1, flags, NULL, 0.0f )
@@ -155,7 +151,7 @@ DECLARE_FIELD_SIZE( FIELD_INTERVAL,		2 * sizeof( float) )  // NOTE:  Must match 
 //#define DEFINE_DATA( type, name, fieldtype, extname, flags ) _FIELD(type, name, fieldtype, 1, flags, extname )
 
 // INPUTS
-#define DEFINE_INPUT( type, name, fieldtype, inputname ) { fieldtype, #name, { offsetof(type, name), 0 }, 1, FTYPEDESC_INPUT | FTYPEDESC_SAVE | FTYPEDESC_KEY,	inputname, NULL, NULL, NULL, sizeof( ((type *)0)->name ) }
+#define DEFINE_INPUT( type, name, fieldtype, inputname ) { fieldtype, #name, { DATAMAP_OFFSET(type, name), 0 }, 1, FTYPEDESC_INPUT | FTYPEDESC_SAVE | FTYPEDESC_KEY,	inputname, NULL, NULL, NULL, sizeof( ((type *)0)->name ) }
 #define DEFINE_INPUTFUNC( type, fieldtype, inputname, inputfunc ) { fieldtype, #inputfunc, { NULL, NULL }, 1, FTYPEDESC_INPUT, inputname, NULL, static_cast <inputfunc_t> (&type::inputfunc) }
 
 // OUTPUTS

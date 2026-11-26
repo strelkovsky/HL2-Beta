@@ -264,6 +264,7 @@ void UTIL_TraceModel( const Vector &vecStart, const Vector &vecEnd, const Vector
 //-----------------------------------------------------------------------------
 class CTraceFilterEntity : public CTraceFilterSimple
 {
+protected:
 	DECLARE_CLASS( CTraceFilterEntity, CTraceFilterSimple );
 
 public:

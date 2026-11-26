@@ -1106,16 +1106,16 @@ CSentence& CSentence::operator=( const CSentence& src )
 	m_nResetWordBase = src.m_nResetWordBase;
 
 	int c = src.m_EmphasisSamples.Size();
-	for ( i = 0; i < c; i++ )
+	for (int i = 0; i < c; i++ )
 	{
 		CEmphasisSample s = src.m_EmphasisSamples[ i ];
 		m_EmphasisSamples.AddToTail( s );
 	}
 
-	for ( int l = 0; l < CC_NUM_LANGUAGES; l++ )
+	for (int l = 0; l < CC_NUM_LANGUAGES; l++ )
 	{
 		c = src.m_CloseCaption[ l ].Count();
-		for ( i = 0; i < c; i++ )
+		for (int i = 0; i < c; i++ )
 		{
 			CCloseCaptionPhrase *phrase = new CCloseCaptionPhrase( (*src.m_CloseCaption[ l ][ i ]) );
 			m_CloseCaption[ l ].AddToTail( phrase );

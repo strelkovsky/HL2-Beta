@@ -15,7 +15,20 @@
 #include <memory.h>
 #include "tier0/dbg.h"
 #include <ctype.h>
+#include "tier0/memalloc.h"
 #include "tier0/memdbgon.h"
+
+#if defined(_MSC_VER) && _MSC_VER >= 1900
+#undef malloc
+#undef free
+#ifdef _DEBUG
+#define malloc(size) g_pMemAlloc->Alloc((size), __FILE__, __LINE__)
+#define free(ptr) g_pMemAlloc->Free((ptr), __FILE__, __LINE__)
+#else
+#define malloc(size) g_pMemAlloc->Alloc(size)
+#define free(ptr) g_pMemAlloc->Free(ptr)
+#endif
+#endif
 
 #undef max
 #define max(x,y) (((x)>(y)) ? (x) : (y))

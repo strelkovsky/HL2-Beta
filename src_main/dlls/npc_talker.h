@@ -93,6 +93,7 @@
 
 class CAI_PlayerAlly : public CAI_BaseActor
 {
+protected:
 	DECLARE_CLASS( CAI_PlayerAlly, CAI_BaseActor );
 public:
 	// AI functions
@@ -255,6 +256,7 @@ protected:
 
 class CNPCSimpleTalker : public CAI_PlayerAlly
 {
+protected:
 	DECLARE_CLASS( CNPCSimpleTalker, CAI_PlayerAlly );
 public:
 	virtual void			StartFollowing( CBaseEntity *pLeader ) { m_FollowBehavior.SetFollowTarget( pLeader ); DeferSchedulingToBehavior( &m_FollowBehavior ); }
@@ -277,7 +279,7 @@ public:
 
 	float			GetUseTime() const { return m_useTime; }
 
-private:
+protected:
 	CAI_FollowBehavior m_FollowBehavior;
 	float		m_useTime;						// Don't allow +USE until this time
 

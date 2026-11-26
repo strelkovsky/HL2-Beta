@@ -38,6 +38,10 @@
 *.out
 *.app
 
+# VS files
+src_main/.vs/
+*.vs2022/
+
 # Build directories
 [Bb]uild/
 [Bb]uild-*/

@@ -20,6 +20,7 @@ class C_WeaponCombatShield;
 
 class C_BaseCombatCharacter : public C_BaseFlex
 {
+protected:
 	DECLARE_CLASS( C_BaseCombatCharacter, C_BaseFlex );
 public:
 	DECLARE_CLIENTCLASS();

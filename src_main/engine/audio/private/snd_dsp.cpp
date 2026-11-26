@@ -30,7 +30,7 @@
 
 #define SIGN(d)				((d)<0?-1:1)
 
-#define ABS(a)	abs(a)
+#define ABS(a)	fabs(a)
 
 #define MSEC_TO_SAMPS(a)	(((a)*SOUND_DMA_SPEED) / 1000)		// convert milliseconds to # samples in equivalent time
 #define SEC_TO_SAMPS(a)		((a)*SOUND_DMA_SPEED)				// conver seconds to # samples in equivalent time
@@ -2739,7 +2739,7 @@ ptc_t * PTC_Alloc( float timeslice, float timexfade, float fstep )
 
 	// get size of region to cut or duplicate
 
-	tcutdup = abs((fstep - 1.0) * timeslice);
+	tcutdup = fabs((fstep - 1.0) * timeslice);
 
 	// to prevent buffer overruns:
 
@@ -4448,88 +4448,88 @@ bool PRC_InitAll( prc_t *prcs, int count )
 		{
 		default:
 		case PRC_NULL:
-			pfnFree		= &(prc_Free_t)NULL_Free;
-			pfnGetNext	= &(prc_GetNext_t)NULL_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)NULL_GetNextN;
+			pfnFree		= (prc_Free_t)NULL_Free;
+			pfnGetNext	= (prc_GetNext_t)NULL_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)NULL_GetNextN;
 			pfnParam	= &NULL_VParams;
-			pfnMod		= &(prc_Mod_t)NULL_Mod;
+			pfnMod		= (prc_Mod_t)NULL_Mod;
 			break;
 		case PRC_DLY:
-			pfnFree		= &(prc_Free_t)DLY_Free;
-			pfnGetNext	= &(prc_GetNext_t)DLY_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)DLY_GetNextN;
+			pfnFree		= (prc_Free_t)DLY_Free;
+			pfnGetNext	= (prc_GetNext_t)DLY_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)DLY_GetNextN;
 			pfnParam	= &DLY_VParams;
-			pfnMod		= &(prc_Mod_t)DLY_Mod;
+			pfnMod		= (prc_Mod_t)DLY_Mod;
 			break;
 		case PRC_RVA:
-			pfnFree		= &(prc_Free_t)RVA_Free;
-			pfnGetNext	= &(prc_GetNext_t)RVA_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)RVA_GetNextN;
+			pfnFree		= (prc_Free_t)RVA_Free;
+			pfnGetNext	= (prc_GetNext_t)RVA_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)RVA_GetNextN;
 			pfnParam	= &RVA_VParams;
-			pfnMod		= &(prc_Mod_t)RVA_Mod;
+			pfnMod		= (prc_Mod_t)RVA_Mod;
 			break;
 		case PRC_FLT:
-			pfnFree		= &(prc_Free_t)FLT_Free;
-			pfnGetNext	= &(prc_GetNext_t)FLT_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)FLT_GetNextN;
+			pfnFree		= (prc_Free_t)FLT_Free;
+			pfnGetNext	= (prc_GetNext_t)FLT_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)FLT_GetNextN;
 			pfnParam	= &FLT_VParams;
-			pfnMod		= &(prc_Mod_t)FLT_Mod;
+			pfnMod		= (prc_Mod_t)FLT_Mod;
 			break;
 		case PRC_CRS:
-			pfnFree		= &(prc_Free_t)CRS_Free;
-			pfnGetNext	= &(prc_GetNext_t)CRS_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)CRS_GetNextN;
+			pfnFree		= (prc_Free_t)CRS_Free;
+			pfnGetNext	= (prc_GetNext_t)CRS_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)CRS_GetNextN;
 			pfnParam	= &CRS_VParams;
-			pfnMod		= &(prc_Mod_t)CRS_Mod;
+			pfnMod		= (prc_Mod_t)CRS_Mod;
 			break;
 		case PRC_PTC:
-			pfnFree		= &(prc_Free_t)PTC_Free;
-			pfnGetNext	= &(prc_GetNext_t)PTC_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)PTC_GetNextN;
+			pfnFree		= (prc_Free_t)PTC_Free;
+			pfnGetNext	= (prc_GetNext_t)PTC_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)PTC_GetNextN;
 			pfnParam	= &PTC_VParams;
-			pfnMod		= &(prc_Mod_t)PTC_Mod;
+			pfnMod		= (prc_Mod_t)PTC_Mod;
 			break;
 		case PRC_ENV:
-			pfnFree		= &(prc_Free_t)ENV_Free;
-			pfnGetNext	= &(prc_GetNext_t)ENV_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)ENV_GetNextN;
+			pfnFree		= (prc_Free_t)ENV_Free;
+			pfnGetNext	= (prc_GetNext_t)ENV_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)ENV_GetNextN;
 			pfnParam	= &ENV_VParams;
-			pfnMod		= &(prc_Mod_t)ENV_Mod;
+			pfnMod		= (prc_Mod_t)ENV_Mod;
 			break;
 		case PRC_LFO:
-			pfnFree		= &(prc_Free_t)LFO_Free;
-			pfnGetNext	= &(prc_GetNext_t)LFO_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)LFO_GetNextN;
+			pfnFree		= (prc_Free_t)LFO_Free;
+			pfnGetNext	= (prc_GetNext_t)LFO_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)LFO_GetNextN;
 			pfnParam	= &LFO_VParams;
-			pfnMod		= &(prc_Mod_t)LFO_Mod;
+			pfnMod		= (prc_Mod_t)LFO_Mod;
 			break;
 		case PRC_EFO:
-			pfnFree		= &(prc_Free_t)EFO_Free;
-			pfnGetNext	= &(prc_GetNext_t)EFO_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)EFO_GetNextN;
+			pfnFree		= (prc_Free_t)EFO_Free;
+			pfnGetNext	= (prc_GetNext_t)EFO_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)EFO_GetNextN;
 			pfnParam	= &EFO_VParams;
-			pfnMod		= &(prc_Mod_t)EFO_Mod;
+			pfnMod		= (prc_Mod_t)EFO_Mod;
 			break;
 		case PRC_MDY:
-			pfnFree		= &(prc_Free_t)MDY_Free;
-			pfnGetNext	= &(prc_GetNext_t)MDY_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)MDY_GetNextN;
+			pfnFree		= (prc_Free_t)MDY_Free;
+			pfnGetNext	= (prc_GetNext_t)MDY_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)MDY_GetNextN;
 			pfnParam	= &MDY_VParams;
-			pfnMod		= &(prc_Mod_t)MDY_Mod;
+			pfnMod		= (prc_Mod_t)MDY_Mod;
 			break;
 		case PRC_DFR:
-			pfnFree		= &(prc_Free_t)DFR_Free;
-			pfnGetNext	= &(prc_GetNext_t)DFR_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)DFR_GetNextN;
+			pfnFree		= (prc_Free_t)DFR_Free;
+			pfnGetNext	= (prc_GetNext_t)DFR_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)DFR_GetNextN;
 			pfnParam	= &DFR_VParams;
-			pfnMod		= &(prc_Mod_t)DFR_Mod;
+			pfnMod		= (prc_Mod_t)DFR_Mod;
 			break;
 		case PRC_AMP:
-			pfnFree		= &(prc_Free_t)AMP_Free;
-			pfnGetNext	= &(prc_GetNext_t)AMP_GetNext;
-			pfnGetNextN	= &(prc_GetNextN_t)AMP_GetNextN;
+			pfnFree		= (prc_Free_t)AMP_Free;
+			pfnGetNext	= (prc_GetNext_t)AMP_GetNext;
+			pfnGetNextN	= (prc_GetNextN_t)AMP_GetNextN;
 			pfnParam	= &AMP_VParams;
-			pfnMod		= &(prc_Mod_t)AMP_Mod;
+			pfnMod		= (prc_Mod_t)AMP_Mod;
 			break;
 		}
 
@@ -4861,8 +4861,8 @@ pset_t * PSET_Alloc ( int ipsettemplate )
 		ipsettemplate = 0;
 
 	// find free slot
-
-	for (int i = 0; i < CPSETS; i++)
+	int i;
+	for (i = 0; i < CPSETS; i++)
 	{
 		if ( !psets[i].fused )
 			break;
@@ -5628,7 +5628,7 @@ void DSP_SetPreset( int idsp, int ipsetnew)
 
 	DSP_FreePrevPreset( pdsp );
 
-	for (i = 0; i < pdsp->cchan; i++)
+	for (int i = 0; i < pdsp->cchan; i++)
 	{
 		// current becomes previous
 

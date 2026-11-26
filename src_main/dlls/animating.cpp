@@ -1838,13 +1838,13 @@ void CBaseAnimating::DrawServerHitboxes( void )
 
 		int j = (pbox->group % 8);
 
-		int r, g, b;
+		int r, g, blue;
 
 		r = ( int ) ( 255.0f * hullcolor[j][0] );
 		g = ( int ) ( 255.0f * hullcolor[j][1] );
-		b = ( int ) ( 255.0f * hullcolor[j][2] );
+		blue = ( int ) ( 255.0f * hullcolor[j][2] );
 
-		NDebugOverlay::BoxAngles( position, pbox->bbmin, pbox->bbmax, angles, r, g, b, 0 ,0);
+		NDebugOverlay::BoxAngles( position, pbox->bbmin, pbox->bbmax, angles, r, g, blue, 0 ,0);
 	}
 }
 

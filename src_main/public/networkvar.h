@@ -44,14 +44,18 @@ inline int InternalCheckDeclareClass( const char *pClassName, const char *pClass
 
 #ifdef _DEBUG
 
+	// Access the base check through a friend so private declarations remain private.
+	template <typename T> int CheckDeclareClass_Base(const char* name) { return T::CheckDeclareClass(name); }
+
 	#define DECLARE_CLASS( className, baseClassName ) \
 		typedef baseClassName BaseClass; \
 		typedef className ThisClass; \
 		template <typename T> friend int CheckDeclareClass_Access(T *); \
+		template <typename T> friend int CheckDeclareClass_Base(const char *); \
 		static int CheckDeclareClass( const char *pShouldBe ) \
 		{ \
 			InternalCheckDeclareClass( pShouldBe, #className, (ThisClass*)0xFFFFF, (BaseClass*)(ThisClass*)0xFFFFF ); \
-			return BaseClass::CheckDeclareClass( #baseClassName ); \
+			return CheckDeclareClass_Base<BaseClass>( #baseClassName ); \
 		}
 
 	// Use this macro when you have a base class, but it's part of a library that doesn't use network vars
@@ -60,6 +64,7 @@ inline int InternalCheckDeclareClass( const char *pClassName, const char *pClass
 		typedef baseClassName BaseClass; \
 		typedef className ThisClass; \
 		template <typename T> friend int CheckDeclareClass_Access(T *); \
+		template <typename T> friend int CheckDeclareClass_Base(const char *); \
 		static int CheckDeclareClass( const char *pShouldBe ) \
 		{ \
 			return InternalCheckDeclareClass( pShouldBe, #className, (ThisClass*)0xFFFFF, (BaseClass*)(ThisClass*)0xFFFFF ); \
@@ -80,6 +85,7 @@ inline int InternalCheckDeclareClass( const char *pClassName, const char *pClass
 	#define DECLARE_CLASS_NOBASE( className ) \
 		typedef className ThisClass; \
 		template <typename T> friend int CheckDeclareClass_Access(T *); \
+		template <typename T> friend int CheckDeclareClass_Base(const char *); \
 		static int CheckDeclareClass( const char *pShouldBe ) \
 		{ \
 			return InternalCheckDeclareClass( pShouldBe, #className, 0, 0 ); \

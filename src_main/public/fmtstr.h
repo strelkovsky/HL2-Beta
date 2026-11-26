@@ -18,6 +18,14 @@
 
 //=============================================================================
 
+#if defined(_MSC_VER) && _MSC_VER >= 1900 && defined(_M_IX86)
+#define FMTSTR_VA_START(args, formatAddress) \
+    ((args) = (va_list)((formatAddress) + 1))
+#else
+#define FMTSTR_VA_START(args, formatAddress) \
+    va_start(args, (*(formatAddress)))
+#endif
+
 // using macro to be compatable with GCC
 #define FmtStrVSNPrintf( szBuf, nBufSize, ppszFormat ) \
 	do \
@@ -25,7 +33,7 @@
 		int     result; \
 		va_list arg_ptr; \
 	\
-		va_start(arg_ptr, (*(ppszFormat))); \
+		FMTSTR_VA_START(arg_ptr, ppszFormat); \
 		result = Q_vsnprintf((szBuf), (nBufSize)-1, (*(ppszFormat)), arg_ptr); \
 		va_end(arg_ptr); \
 	\

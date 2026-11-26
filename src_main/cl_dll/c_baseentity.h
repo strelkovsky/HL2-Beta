@@ -180,6 +180,7 @@ struct thinkfunc_t
 class C_BaseEntity : public IClientEntity
 {
 // Construction
+protected:
 	DECLARE_CLASS_NOBASE( C_BaseEntity );
 
 	friend class CPrediction;

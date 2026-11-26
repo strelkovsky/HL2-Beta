@@ -57,7 +57,7 @@ bool CVGuiScreen::KeyValue( const char *szKeyName, const char *szValue )
 {
 	//!! temp hack, until worldcraft is fixed
 	// strip the # tokens from (duplicate) key names
-	char *s = strchr( szKeyName, '#' );
+	char* s = const_cast<char*>(strchr(szKeyName, '#'));
 	if ( s )
 	{
 		*s = '\0';

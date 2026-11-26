@@ -28,6 +28,7 @@ class CSprite;
 //=========================================================
 class CNPC_Vortigaunt : public CNPCSimpleTalker
 {
+public:
 	DECLARE_CLASS( CNPC_Vortigaunt, CNPCSimpleTalker );
 
 public:
@@ -75,7 +76,7 @@ public:
 	bool			CreateBehaviors();
 
 
-private:
+protected:
 	float			m_flNextNPCThink;
 
 	// ------------

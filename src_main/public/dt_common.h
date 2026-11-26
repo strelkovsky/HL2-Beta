@@ -35,6 +35,9 @@
 #define offsetof(s,m)	(size_t)&(((s *)0)->m)
 #endif
 
+// Legacy network tables include array and vector elements in member expressions.
+#define DT_OFFSET(s,m) ((size_t)&(((s *)0)->m))
+
 #define STRINGBUFSIZE(className, varName)	sizeof( ((className*)0)->varName )
 
 // Gets the size of a variable in a class.

@@ -1,0 +1,127 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{769EE16C-D7BB-5921-BB4F-A1D368995E10}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>stdshader_dx9</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>stdshader_dx9</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\common;..\..\public;fxctmp9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX9_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir).vs2022\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir).vs2022\obj\$(ProjectName)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\common;..\..\public;fxctmp9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX9_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include=".\BaseVSShader.cpp" />
+    <ClInclude Include=".\BaseVSShader.h" />
+    <ClCompile Include="..\..\public\bumpvects.cpp" />
+    <ClCompile Include=".\hsv.cpp" />
+    <ClCompile Include=".\lightmappedgeneric.cpp" />
+    <ClCompile Include="..\..\public\mathlib.cpp" />
+    <ClCompile Include="..\..\public\tier0\memoverride.cpp" />
+    <ClCompile Include=".\refract.cpp" />
+    <ClCompile Include=".\shadow.cpp" />
+    <ClCompile Include=".\shatteredglass.cpp" />
+    <ClCompile Include=".\sky.cpp" />
+    <ClCompile Include=".\teeth.cpp" />
+    <ClCompile Include=".\unlitgeneric.cpp" />
+    <ClCompile Include=".\vertexlitgeneric.cpp" />
+    <ClCompile Include="..\..\public\vmatrix.cpp" />
+    <ClCompile Include=".\water.cpp" />
+    <ClCompile Include=".\worldvertexalpha.cpp" />
+    <ClCompile Include=".\worldvertextransition.cpp" />
+    <ClInclude Include=".\common_fxc.h" />
+    <ClInclude Include=".\common_hlsl_cpp_consts.h" />
+    <ClInclude Include=".\common_ps_fxc.h" />
+    <ClInclude Include=".\common_vs_fxc.h" />
+    <None Include=".\hsv_ps20.fxc" />
+    <None Include=".\vertexlit_and_unlit_generic_vs20.fxc" />
+    <None Include=".\vertexlit_and_unlit_generic_ps20.fxc" />
+    <None Include=".\lightmappedgeneric_vs20.fxc" />
+    <None Include=".\lightmappedgeneric_ps20.fxc" />
+    <None Include=".\shadow_vs20.fxc" />
+    <None Include=".\shadow_ps20.fxc" />
+    <None Include=".\ShatteredGlass_ps20.fxc" />
+    <None Include=".\ShatteredGlass_vs20.fxc" />
+    <None Include=".\teeth_vs20.fxc" />
+    <None Include=".\Water_vs20.fxc" />
+    <None Include=".\Water_ps20.fxc" />
+    <None Include=".\screenspaceeffect_vs20.fxc" />
+    <None Include=".\Refract_vs20.fxc" />
+    <None Include=".\Refract_ps20.fxc" />
+    <None Include=".\WaterCheap_vs20.fxc" />
+    <None Include=".\WaterCheap_ps20.fxc" />
+    <None Include=".\WorldVertexTransition_vs20.fxc" />
+    <None Include=".\WorldVertexTransition_ps20.fxc" />
+    <None Include="..\..\devtools\bin\fxc_prep.pl" />
+    <ClCompile Include=".\stdshader_dx9.cpp" />
+    <None Include=".\stdshader_dx9.txt" />
+    <None Include="..\..\devtools\bin\updateshaders.pl" />
+    <None Include="..\..\lib\public\vstdlib.lib" />
+    <None Include="..\..\lib\public\shaderlib.lib" />
+    <None Include="..\..\lib\public\tier0.lib" />
+  </ItemGroup>
+  <Import Project="..\..\HL2_Output.props" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

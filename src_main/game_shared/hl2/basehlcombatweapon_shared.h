@@ -18,6 +18,7 @@
 
 class CBaseHLCombatWeapon : public CBaseCombatWeapon
 {
+protected:
 #if !defined( CLIENT_DLL )
 	DECLARE_DATADESC();
 #endif

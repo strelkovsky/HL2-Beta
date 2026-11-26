@@ -70,6 +70,7 @@ struct AI_LeadArgs_t
 
 class CAI_LeadBehavior : public CAI_SimpleBehavior
 {
+protected:
 	DECLARE_CLASS( CAI_LeadBehavior, CAI_SimpleBehavior );
 public:
 	CAI_LeadBehavior()

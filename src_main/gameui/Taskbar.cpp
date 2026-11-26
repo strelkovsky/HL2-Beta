@@ -501,7 +501,7 @@ void CTaskbar::UpdateTaskButtons()
 	int x = 40 + MENU_BUTTON_WIDE, y = 20;
 
 	// layout buttons
-	for (i = 0; i < g_Tasks.Size(); i++)
+	for (int i = 0; i < g_Tasks.Size(); i++)
 	{
 		if (!g_Tasks[i]->ShouldDisplay())
 		{
