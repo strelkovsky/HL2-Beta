@@ -116,7 +116,8 @@ void CBaseCombatWeapon::Operator_FrameUpdate( CBaseCombatCharacter *pOperator )
 
 	CBaseViewModel *vm = pOwner->GetViewModel();
 	
-	if ( vm != NULL )
+	// The viewmodel can exist before a weapon model has been assigned.
+	if ( vm != NULL && vm->GetModelPtr() != NULL )
 	{
 		vm->StudioFrameAdvance();
 		vm->DispatchAnimEvents( this );
