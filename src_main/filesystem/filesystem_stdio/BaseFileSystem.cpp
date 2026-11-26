@@ -537,7 +537,8 @@ void CBaseFileSystem::AddMapPackFile( const char *pPath, SearchPathAdd_t addType
 	m_Stats.nBytesRead += FS_fread( &header, 1, sizeof( header ), fp );
 	m_Stats.nReads++;
 
-	if ( header.ident != IDBSPHEADER || header.version != BSPVERSION )
+	// BSP 19 keeps the same embedded ZIP layout as BSP 18.
+	if ( header.ident != IDBSPHEADER || ( header.version != BSPVERSION && header.version != 19 ) )
 	{
 		Trace_FClose( fp );
 		return;
