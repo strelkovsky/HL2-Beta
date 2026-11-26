@@ -350,7 +350,6 @@
     <ClInclude Include=".\cl_ents_parse.h" />
     <ClInclude Include=".\cl_localnetworkbackdoor.h" />
     <ClInclude Include=".\cl_main.h" />
-    <ClInclude Include=".\cl_parse.h" />
     <ClInclude Include=".\cl_parse_event.h" />
     <ClInclude Include=".\cl_pred.h" />
     <ClInclude Include=".\cl_servercache.h" />
@@ -414,7 +413,6 @@
     <ClInclude Include=".\getintersectingsurfaces_struct.h" />
     <ClInclude Include=".\gl_cvars.h" />
     <ClInclude Include=".\gl_drawlights.h" />
-    <ClInclude Include=".\gl_hw.h" />
     <ClInclude Include=".\gl_lightmap.h" />
     <ClInclude Include=".\gl_matsysiface.h" />
     <ClInclude Include=".\GL_MODEL.H" />
@@ -424,7 +422,6 @@
     <ClInclude Include=".\gl_shader.h" />
     <ClInclude Include=".\gl_shaderutil.h" />
     <ClInclude Include=".\gl_texture.h" />
-    <ClInclude Include=".\gl_warp_sin.h" />
     <ClInclude Include=".\gl_water.h" />
     <ClInclude Include=".\GLQUAKE.H" />
     <ClInclude Include=".\host.h" />
@@ -733,7 +730,6 @@
     <ClInclude Include=".\audio\private\snd_convars.h" />
     <ClInclude Include=".\audio\private\snd_dev_direct.h" />
     <ClInclude Include=".\audio\private\snd_dev_wave.h" />
-    <ClInclude Include=".\audio\private\snd_dma.h" />
     <ClInclude Include=".\audio\private\snd_env_fx.h" />
     <ClInclude Include=".\audio\private\snd_fixedint.h" />
     <ClInclude Include=".\audio\private\snd_mix_buf.h" />
