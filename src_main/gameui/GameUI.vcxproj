@@ -79,6 +79,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\public\KeyValues.cpp" />
+    <ClCompile Include="..\public\tier0\memoverride.cpp" />
+    <ClCompile Include="..\engine\ucrt_memimports.cpp" />
     <ClCompile Include=".\BackgroundMenuButton.cpp" />
     <ClCompile Include=".\BasePanel.cpp" />
     <ClCompile Include=".\ChangeGameDialog.cpp" />
