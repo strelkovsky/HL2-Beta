@@ -216,6 +216,8 @@ void ClearIOStates( void )
 #ifndef SWDS
 #include "gl_matsysiface.h"
 
+bool PlayStartupVideos( HWND gameWindow, IFileSystem &fileSystem );
+
 bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherFactory )
 {
 	// Store off the app system factory...
@@ -237,7 +239,8 @@ bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherF
 
 	TRACEINIT( Shader_Init(), Shader_Shutdown() );
 
-	if ( videomode->Init( (void *)instance ) )
+	const bool videoInitialized = videomode->Init( (void *)instance );
+	if ( videoInitialized && PlayStartupVideos( game->GetMainWindow(), *g_pFileSystem ) )
 	{
 		Shader_SetMode( game->GetMainWindow(), videomode->IsWindowedMode() );
 
@@ -287,8 +290,10 @@ bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherF
 			game->Shutdown();
 		}
 
-		videomode->Shutdown();
 	}
+
+	if ( videoInitialized )
+		videomode->Shutdown();
 
 	TRACESHUTDOWN( Shader_Shutdown() );
 

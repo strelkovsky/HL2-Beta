@@ -48,7 +48,7 @@
       <PreprocessorDefinitions>_DEBUG;GLQUAKE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vtf.lib;$(ProjectDir)..\lib\common\s3tc.lib;dsound.lib;dxguid.lib;vgui_controls.lib;oleaut32.lib;dinput8.lib;winmm.lib;wsock32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vtf.lib;$(ProjectDir)..\lib\common\s3tc.lib;dsound.lib;dxguid.lib;vgui_controls.lib;oleaut32.lib;dinput8.lib;winmm.lib;vfw32.lib;wsock32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\public;..\lib\common;..\dx8sdk\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -74,7 +74,7 @@
       <PreprocessorDefinitions>NDEBUG;GLQUAKE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vtf.lib;$(ProjectDir)..\lib\common\s3tc.lib;vgui_controls.lib;dsound.lib;dxguid.lib;dinput8.lib;winmm.lib;wsock32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vtf.lib;$(ProjectDir)..\lib\common\s3tc.lib;vgui_controls.lib;dsound.lib;dxguid.lib;dinput8.lib;winmm.lib;vfw32.lib;wsock32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;uuid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\lib\public;..\lib\common;..\dx8sdk\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -300,6 +300,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include=".\startupvideo.cpp" />
     <ClCompile Include=".\sys_dll2.cpp" />
     <ClCompile Include=".\sys_engine.cpp" />
     <ClCompile Include=".\sys_getmodes.cpp" />
