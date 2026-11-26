@@ -30,6 +30,7 @@
 #include "mempool.h"
 #include <stddef.h>
 #include <limits.h>
+#include "vtx7_converter.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -3177,7 +3178,28 @@ bool Mod_LoadStudioModelVtxFileIntoTempBuffer( model_t *mod, CUtlMemory<unsigned
 
 	readOK = ( fileLength == g_pFileSystem->Read( tmpVtxMem.Base(), fileLength, fileHandle ) );
 	g_pFileSystem->Close( fileHandle );
-	return readOK;
+	if ( !readOK )
+		return false;
+
+	// Version 7 uses a smaller vertex record than this engine's version 6.
+	// Convert the optimized mesh in memory; never modify the original file.
+	if ( fileLength >= 4 && Vtx7Converter::Read32( tmpVtxMem.Base(), 0 ) == 7 )
+	{
+		if ( fileLength < 20 || Vtx7Converter::Read32( tmpVtxMem.Base(), 16 ) != static_cast<uint32_t>( pStudioHdr->checksum ) )
+		{
+			Warning( "VTX checksum does not match model %s\n", pStudioHdr->name );
+			return false;
+		}
+		std::vector<unsigned char> converted;
+		if ( !Vtx7Converter::Convert( tmpVtxMem.Base(), fileLength, converted ) )
+		{
+			Warning( "Unsupported or invalid VTX 7 data in %s\n", tempFileName );
+			return false;
+		}
+		tmpVtxMem.EnsureCapacity( static_cast<int>( converted.size() ) );
+		memcpy( tmpVtxMem.Base(), converted.data(), converted.size() );
+	}
+	return true;
 }
 
 

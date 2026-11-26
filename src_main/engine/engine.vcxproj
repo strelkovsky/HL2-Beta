@@ -461,6 +461,8 @@
     <ClInclude Include="..\Public\mem_fgets.h" />
     <ClInclude Include=".\MODELGEN.H" />
     <ClInclude Include=".\modelloader.h" />
+    <ClInclude Include=".\vtx7_converter.h" />
+    <ClInclude Include=".\vvd4_converter.h" />
     <ClInclude Include="..\public\modes.h" />
     <ClInclude Include=".\NET.H" />
     <ClInclude Include=".\net_synctags.h" />
