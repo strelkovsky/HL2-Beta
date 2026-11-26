@@ -152,23 +152,23 @@ SpewRetval_t  _SpewMessage( SpewType_t spewType, char const* pMsgFormat, va_list
 {
 	char pTempBuffer[1024];
 
-	/* Printf the file and line for warning + assert only... */
+	// Bound diagnostic text before writing: some map warnings exceed 1 KiB.
 	int len = 0;
-	if ((spewType == SPEW_ASSERT) )
+	if (spewType == SPEW_ASSERT)
 	{
-		len = sprintf( pTempBuffer, "%s (%d) : ", s_pFileName, s_Line );
+		len = snprintf( pTempBuffer, sizeof(pTempBuffer), "%s (%d) : ", s_pFileName ? s_pFileName : "?", s_Line );
+		if (len < 0) len = 0;
+		if (len >= (int)sizeof(pTempBuffer) - 2) len = sizeof(pTempBuffer) - 2;
 	}
+	int written = vsnprintf( pTempBuffer + len, sizeof(pTempBuffer) - len - 1, pMsgFormat, args );
+	if (written < 0 || written >= (int)(sizeof(pTempBuffer) - len - 1))
+		len = (int)strlen(pTempBuffer);
+	else
+		len += written;
+	if (spewType == SPEW_ASSERT)
+		pTempBuffer[len++] = '\n';
+	pTempBuffer[len] = '\0';
 	
-	/* Create the message.... */
-	len += vsprintf( &pTempBuffer[len], pMsgFormat, args );
-
-	// Add \n for warning and assert
-	if ((spewType == SPEW_ASSERT) )
-	{
-		len += sprintf( &pTempBuffer[len], "\n" ); 
-	}
-	
-	assert( len < 1024 ); /* use normal assert here; to avoid recursion. */
 	assert( s_SpewOutputFunc );
 	
 	/* direct it to the appropriate target(s) */
