@@ -89,7 +89,6 @@
   <ItemGroup>
     <ClCompile Include="..\public\studio.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\engine\ucrt_memimports.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
