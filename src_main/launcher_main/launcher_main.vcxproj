@@ -75,11 +75,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="crashlog.cpp" />
     <ResourceCompile Include=".\launcher_main.rc" />
     <ClCompile Include=".\main.cpp" />
-    <ClCompile Include=".\crashlog.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
     <None Include="..\launcher\res\launcher.ico" />
   </ItemGroup>
   <Import Project="..\HL2_Output.props" />
