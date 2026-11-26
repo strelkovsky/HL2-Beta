@@ -331,6 +331,8 @@ void Host_Error (char *error, ...)
 	Q_vsnprintf(string,sizeof(string),error,argptr);
 	va_end (argptr);
 
+	Sys_LogErrorMessage( "Host_Error", string );
+
 	if ( cls.state == ca_dedicated )
 	{
 		// dedicated servers just exit

@@ -272,6 +272,28 @@ void Sys_Shutdown( void )
 //			... - 
 // Output : void Sys_Error
 //-----------------------------------------------------------------------------
+// Log fatal and host errors before filesystem shutdown or a message box.
+void Sys_LogErrorMessage( const char *kind, const char *message )
+{
+#ifdef _WIN32
+    char path[MAX_PATH];
+    DWORD length = GetModuleFileNameA( NULL, path, sizeof(path) );
+    if ( !length || length >= sizeof(path) ) return;
+    char *slash = strrchr( path, '\\' );
+    if ( !slash ) return;
+    Q_strncpy( slash + 1, "hl2_errors.log", sizeof(path) - (slash + 1 - path) );
+    HANDLE file = CreateFileA( path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL );
+    if ( file == INVALID_HANDLE_VALUE ) return;
+    SYSTEMTIME now; GetLocalTime( &now );
+    char text[1600];
+    Q_snprintf( text, sizeof(text), "\r\n[%04u-%02u-%02u %02u:%02u:%02u] %s: %s\r\n",
+                now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond, kind, message );
+    DWORD written; WriteFile( file, text, (DWORD)strlen(text), &written, NULL );
+    CloseHandle( file );
+#endif
+}
+
 void Sys_Error (const char *error, ...)
 {
 	va_list		argptr;
@@ -281,6 +303,8 @@ void Sys_Error (const char *error, ...)
 	va_start (argptr, error);
 	Q_vsnprintf (text, sizeof( text ), error, argptr);
 	va_end (argptr);
+
+	Sys_LogErrorMessage( "Sys_Error", text );
 
 	if ( bReentry )
 	{
@@ -471,7 +495,33 @@ void Sys_InitMemory( void )
 	host_parms.membase = (unsigned char *)new unsigned char[ host_parms.memsize ];
 	if ( !host_parms.membase )
 	{
+#ifdef _WIN32
+		// Total free virtual memory is not necessarily contiguous. Report the
+		// largest free range as well as the total to diagnose hunk allocation.
+		MEMORY_BASIC_INFORMATION mbi;
+		ULONG_PTR address = 0;
+		unsigned __int64 freeBytes = 0;
+		SIZE_T largestFree = 0;
+		while ( VirtualQuery( reinterpret_cast<const void *>( address ), &mbi, sizeof( mbi ) ) == sizeof( mbi ) )
+		{
+			if ( mbi.State == MEM_FREE )
+			{
+				freeBytes += mbi.RegionSize;
+				if ( mbi.RegionSize > largestFree )
+					largestFree = mbi.RegionSize;
+			}
+			ULONG_PTR next = reinterpret_cast<ULONG_PTR>( mbi.BaseAddress ) + mbi.RegionSize;
+			if ( next <= address )
+				break;
+			address = next;
+		}
+		Sys_Error( "Unable to allocate %.2f MB\nLargest free virtual block: %.2f MB\nTotal free virtual memory: %.2f MB\n",
+			(double)host_parms.memsize / (1024.0 * 1024.0),
+			(double)largestFree / (1024.0 * 1024.0),
+			(double)freeBytes / (1024.0 * 1024.0) );
+#else
 		Sys_Error( "Unable to allocate %.2f MB\n", (float)(host_parms.memsize)/( 1024.0 * 1024.0 ) );
+#endif
 	}
 }
 

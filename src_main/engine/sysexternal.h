@@ -12,6 +12,7 @@
 
 // an error will cause the entire program to exit
 void Sys_Error(const char *psz, ...);
+void Sys_LogErrorMessage(const char *kind, const char *message);
 
 // send text to the console
 void Sys_Printf (char *fmt, ...);
