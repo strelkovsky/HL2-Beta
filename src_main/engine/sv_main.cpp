@@ -639,6 +639,20 @@ void SV_TermSendTables( ServerClass *pClasses )
 //-----------------------------------------------------------------------------
 // Purpose: Loads the game .dll
 //-----------------------------------------------------------------------------
+static void *ServerInitAppFactory( const char *name, int *returnCode )
+{
+	void *result = g_AppSystemFactory( name, returnCode );
+	if ( !result ) Warning( "Server DLL could not get app interface: %s\n", name );
+	return result;
+}
+
+static void *ServerInitPhysicsFactory( const char *name, int *returnCode )
+{
+	void *result = physicsFactory( name, returnCode );
+	if ( !result ) Warning( "Server DLL could not get physics interface: %s\n", name );
+	return result;
+}
+
 void SV_InitGameDLL( void )
 {
 	// Clear out the command buffer.
@@ -663,7 +677,7 @@ void SV_InitGameDLL( void )
 	svs.dll_initialized = true;
 
 	// Tell the game DLL to start up
-	if(!serverGameDLL->DLLInit(g_AppSystemFactory, physicsFactory, g_AppSystemFactory, &g_ServerGlobalVariables))
+	if(!serverGameDLL->DLLInit(g_AppSystemFactory ? ServerInitAppFactory : NULL, physicsFactory ? ServerInitPhysicsFactory : NULL, g_AppSystemFactory ? ServerInitAppFactory : NULL, &g_ServerGlobalVariables))
 	{
 		Host_Error("IDLLFunctions::GameDLLInit returned false.\n");
 	}

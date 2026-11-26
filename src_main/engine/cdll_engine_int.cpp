@@ -1076,6 +1076,34 @@ static void ClientDLL_ShutdownRecvTableMgr()
 //-----------------------------------------------------------------------------
 // Purpose: Loads the client .dll
 //-----------------------------------------------------------------------------
+// Record unsuccessful factory requests during client initialization. Some
+// requests may be optional; the factory return values are unchanged.
+static char s_ClientInitMissingInterfaces[2048];
+static bool s_RecordClientInitInterfaces = false;
+
+static void *ClientInitQueryInterface( CreateInterfaceFn factory, const char *source, const char *name, int *returnCode )
+{
+    void *result = factory ? factory( name, returnCode ) : NULL;
+    if ( s_RecordClientInitInterfaces && !result )
+    {
+        int used = Q_strlen( s_ClientInitMissingInterfaces );
+        if ( used < sizeof( s_ClientInitMissingInterfaces ) - 1 )
+            Q_snprintf( s_ClientInitMissingInterfaces + used, sizeof( s_ClientInitMissingInterfaces ) - used,
+                "%s: %s\n", source, name ? name : "(null)" );
+    }
+    return result;
+}
+
+static void *ClientInitAppFactory( const char *name, int *returnCode )
+{
+    return ClientInitQueryInterface( g_AppSystemFactory, "app", name, returnCode );
+}
+
+static void *ClientInitPhysicsFactory( const char *name, int *returnCode )
+{
+    return ClientInitQueryInterface( physicsFactory, "physics", name, returnCode );
+}
+
 void ClientDLL_Init( void )
 {
 	char szDllName[512];
@@ -1100,9 +1128,15 @@ void ClientDLL_Init( void )
 				Sys_Error( "Could not get client.dll interface from library %s", szDllName );
 			}
 
-			if ( !g_ClientDLL->Init(g_AppSystemFactory, physicsFactory, &g_ClientGlobalVariables ) )
+			s_ClientInitMissingInterfaces[0] = '\0';
+			s_RecordClientInitInterfaces = true;
+			int clientInitResult = g_ClientDLL->Init( g_AppSystemFactory ? ClientInitAppFactory : NULL,
+				physicsFactory ? ClientInitPhysicsFactory : NULL, &g_ClientGlobalVariables );
+			s_RecordClientInitInterfaces = false;
+			if ( !clientInitResult )
 			{
-				Sys_Error("Client.dll Init() in library %s failed.", szDllName);
+				Sys_Error( "Client.dll Init() in library %s failed.\n\nUnresolved interface requests (some may be optional):\n%s",
+					szDllName, s_ClientInitMissingInterfaces[0] ? s_ClientInitMissingInterfaces : "None recorded." );
 			}
 
 			// Load the prediction interface from the client .dll
