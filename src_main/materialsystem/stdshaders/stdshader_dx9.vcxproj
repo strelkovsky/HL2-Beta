@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -38,15 +38,17 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>..\..\common;..\..\public;fxctmp9;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX9_DLL_EXPORT;_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_MBCS;_USRDLL;fopen=dont_use_fopen;STDSHADER_DX9_DLL_EXPORT;_WIN32;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -68,6 +70,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>$(HL2OutputRoot)lib\$(Configuration)\shaderlib.lib;$(HL2OutputRoot)lib\$(Configuration)\tier0.lib;$(HL2OutputRoot)lib\$(Configuration)\vstdlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\..\lib\common\\;..\..\lib\public\\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Windows</SubSystem>
     </Link>
@@ -123,5 +126,11 @@
     <None Include="..\..\lib\public\tier0.lib" />
   </ItemGroup>
   <Import Project="..\..\HL2_Output.props" />
+  <ItemGroup>
+    <ShaderFxc Include="@(None->WithMetadataValue('Extension', '.fxc'))" />
+  </ItemGroup>
+  <Target Name="GenerateFxcShaders" BeforeTargets="ClCompile" Inputs="@(ShaderFxc);$(ProjectDir)..\..\devtools\bin\fxc_prep.pl;$(ProjectDir)common_fxc.h;$(ProjectDir)common_ps_fxc.h;$(ProjectDir)common_vs_fxc.h;$(ProjectDir)common_hlsl_cpp_consts.h" Outputs="@(ShaderFxc->'$(ProjectDir)fxctmp9\%(Filename).inc')">
+    <Exec WorkingDirectory="$(ProjectDir)" Command="&quot;$(ProjectDir)..\..\devtools\bin\perl.exe&quot; &quot;$(ProjectDir)..\..\devtools\bin\fxc_prep.pl&quot; -dx9 &quot;%(ShaderFxc.Filename)%(ShaderFxc.Extension)&quot;" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
