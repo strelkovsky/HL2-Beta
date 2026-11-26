@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+LONG WINAPI LogUnhandledException(EXCEPTION_POINTERS *exception);
+
 typedef int (*LauncherMain_t)( HINSTANCE hInstance, HINSTANCE hPrevInstance, 
 							  LPSTR lpCmdLine, int nCmdShow );
 
@@ -83,6 +85,14 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	}
 
 	LauncherMain_t main = (LauncherMain_t)GetProcAddress( launcher, "LauncherMain" );
-	return main( hInstance, hPrevInstance, lpCmdLine, nCmdShow );
+	SetUnhandledExceptionFilter( LogUnhandledException );
+	__try
+	{
+		return main( hInstance, hPrevInstance, lpCmdLine, nCmdShow );
+	}
+	__except( LogUnhandledException( GetExceptionInformation() ) )
+	{
+		return 1;
+	}
 }
 
