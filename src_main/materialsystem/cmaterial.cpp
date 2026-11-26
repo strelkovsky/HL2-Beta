@@ -323,8 +323,9 @@ CMaterial::CMaterial( char const* materialName, bool bCreatedFromFile )
 	strcpy( pTemp, materialName );
 	Q_strlower( pTemp );
 
-	// Strip off the extension
-	pTemp[ len - 4 ] = '\0';
+	// Only remove an actual .vmt suffix; an empty or short material name is valid input.
+	if ( len >= 4 && !Q_stricmp( pTemp + len - 4, ".vmt" ) )
+		pTemp[ len - 4 ] = '\0';
 
 	// Convert it to a symbol
 	m_Name = pTemp;
