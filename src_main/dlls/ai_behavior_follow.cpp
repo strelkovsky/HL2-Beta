@@ -1040,7 +1040,7 @@ AI_FollowManagerInfoHandle_t CAI_FollowManager::AddFollower( CBaseEntity *pTarge
 		
 		CalculateFieldsFromSlot( pSlot, &iterNode->navInfo );
 		
-		return *((AI_FollowManagerInfoHandle_t *)((void *)&iterNode));
+		return reinterpret_cast<AI_FollowManagerInfoHandle_t>( &*iterNode );
 	}
 	return NULL;
 }
@@ -1049,7 +1049,7 @@ AI_FollowManagerInfoHandle_t CAI_FollowManager::AddFollower( CBaseEntity *pTarge
 
 bool CAI_FollowManager::CalcFollowPosition( AI_FollowManagerInfoHandle_t hInfo, AI_FollowNavInfo_t *pNavInfo )
 {
-	FollowerListIter_t iterNode = *((FollowerListIter_t *)(&hInfo));
+	AI_Follower_t *iterNode = reinterpret_cast<AI_Follower_t *>(hInfo);
 	if ( hInfo && iterNode->pGroup )
 	{
 		Assert( iterNode->pGroup->hFollowTarget.Get() );
@@ -1082,12 +1082,15 @@ bool CAI_FollowManager::CalcFollowPosition( AI_FollowManagerInfoHandle_t hInfo, 
 
 void CAI_FollowManager::RemoveFollower( AI_FollowManagerInfoHandle_t hInfo )
 {
-	FollowerListIter_t iterNode = *((FollowerListIter_t *)(&hInfo));
+	AI_Follower_t *iterNode = reinterpret_cast<AI_Follower_t *>(hInfo);
 	if ( hInfo && iterNode->pGroup )
 	{
 		AI_FollowGroup_t *pGroup = iterNode->pGroup;
 		pGroup->slotUsage.ClearBit( iterNode->slot );
-		pGroup->followers.erase( iterNode );
+		for ( FollowerListIter_t it = pGroup->followers.begin(); it != pGroup->followers.end(); ++it )
+		{
+			if ( &*it == iterNode ) { pGroup->followers.erase( it ); break; }
+		}
 		if ( pGroup->followers.size() == 0 )
 		{
 			RemoveGroup( pGroup );
