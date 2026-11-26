@@ -32,8 +32,8 @@ void polyMake( float x1, float  y1, float x2, float y2, int npoints, float start
         if( angle > 360 )
             angle -= 360;
 
-        pmPoints[point][0] = rint(xCenter + (sin(DEG2RAD(angle)) * (float)xrad));
-        pmPoints[point][1] = rint(yCenter + (cos(DEG2RAD(angle)) * (float)yrad));
+        pmPoints[point][0] = RoundToNearest(xCenter + (sin(DEG2RAD(angle)) * (float)xrad));
+        pmPoints[point][1] = RoundToNearest(yCenter + (cos(DEG2RAD(angle)) * (float)yrad));
     }
 
     pmPoints[point][0] = pmPoints[0][0];
@@ -69,7 +69,7 @@ float lineangle(float x1, float y1, float x2, float y2)
 }
 
 
-float rint(float f)
+float RoundToNearest(float f)
 {
 	if (f > 0.0f) {
 		return (float) floor(f + 0.5f);

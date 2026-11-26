@@ -13,7 +13,6 @@
 //
 #include <mx/mxWindow.h>
 #include <windows.h>
-#include <ostream.h>
 
 
 

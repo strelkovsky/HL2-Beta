@@ -10,7 +10,7 @@
 #pragma once
 
 
-#include <fstream.h>
+#include "wc_fstream.h"
 #include "HelperInfo.h"
 #include "TokenReader.h"
 #include "GamePalette.h"

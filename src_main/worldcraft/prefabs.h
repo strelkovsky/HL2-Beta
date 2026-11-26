@@ -11,7 +11,7 @@
 
 
 #include <afxtempl.h>
-#include <fstream.h>
+#include "wc_fstream.h"
 
 
 class BoundBox;

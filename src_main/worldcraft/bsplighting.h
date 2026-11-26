@@ -145,6 +145,7 @@ private:
 		CUtlVector<CDispInfoFaces> &dispInfos
 		);
 
+	static bool FindDrawCommand( CUtlVector<CDrawCommand*> &drawCommands, int lmPageID, int &index );
 	void					BuildDrawCommands();
 
 	void					ReloadLightmaps();

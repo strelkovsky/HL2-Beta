@@ -30,14 +30,14 @@ float GetFileVersion() { return fThisVersion; }
 static void WriteString(fstream& file, LPCTSTR pszString)
 {
 	BYTE cLen = strlen(pszString)+1;
-	file.write(&cLen, 1);
+	file.write(reinterpret_cast<const char *>(&cLen), 1);
 	file.write(pszString, cLen);
 }
 
 static void ReadString(fstream& file, char * pszString)
 {
 	BYTE cLen;
-	file.read(&cLen, 1);
+	file.read(reinterpret_cast<char *>(&cLen), 1);
 	file.read(pszString, cLen);
 }
 

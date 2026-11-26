@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #include <mx/mx.h>
 #include <mx/mxTga.h>
 #include <mx/mxEvent.h>
@@ -613,7 +614,7 @@ SpewRetval_t HLMVSpewFunc( SpewType_t spewType, char const *pMsg )
 
 int main (int argc, char *argv[])
 {
-	CommandLine()->CreateCmdLine( argc, argv );
+	CommandLine()->CreateCmdLine( GetCommandLineA() );
 
 	SpewOutputFunc( HLMVSpewFunc );
 	MathLib_Init( 2.2f, 2.2f, 0.0f, 2.0f );

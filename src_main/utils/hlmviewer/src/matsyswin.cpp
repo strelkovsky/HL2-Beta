@@ -187,7 +187,7 @@ MatSysWindow::MatSysWindow (mxWindow *parent, int x, int y, int w, int h, const 
 	const char *pShaderDLL = CommandLine()->ParmValue("-shaderdll");
 	if(!pShaderDLL)
 	{
-		pShaderDLL = "shaderapidx9.dll";
+		pShaderDLL = "shaderapidx8.dll";
 	}
 
 	if(!( g_MaterialSystemClientFactory = g_pMaterialSystem->Init(pShaderDLL, &g_DummyMaterialProxyFactory, CmdLib_GetFileSystemFactory() )) )

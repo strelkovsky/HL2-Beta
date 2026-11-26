@@ -109,7 +109,7 @@ protected:
 	afx_msg void OnToolsOptions();
 	afx_msg void OnViewShowconnections();
 	afx_msg void OnToolsPrefabfactory();
-	afx_msg void OnHelpOpenURL(int nID);
+	afx_msg BOOL OnHelpOpenURL(UINT nID);
 	afx_msg void OnHelpFinder();
 	afx_msg void OnEditUndoredoactive();
 	afx_msg void OnUpdateEditUndoredoactive(CCmdUI* pCmdUI);
@@ -118,7 +118,7 @@ protected:
 	afx_msg void OnLoadwindowstate();
 	afx_msg void OnFileOpen();
 	afx_msg BOOL OnChange3dViewType(UINT nID);
-	afx_msg void OnUnits(int nID);
+	afx_msg BOOL OnUnits(UINT nID);
 	afx_msg void OnUpdateUnits(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateView3d(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateView2d(CCmdUI *pCmdUI);
@@ -126,9 +126,9 @@ protected:
 	afx_msg BOOL OnView3dChangeBrightness(UINT nID);
 	afx_msg void OnUpdateApplicatorUI(CCmdUI *pUI);
 	afx_msg BOOL OnHelpInfo(HELPINFO*);
-	afx_msg void OnActivateApp(BOOL bActive, HTASK hTask);
+	afx_msg void OnActivateApp(BOOL bActive, DWORD dwThreadId);
 	afx_msg void OnUpdateEditFunction(CCmdUI *pCmdUI);
-	afx_msg void OnApplicator(UINT nID);
+	afx_msg BOOL OnApplicator(UINT nID);
 	afx_msg void OnUpdateOpaqueMaterials(CCmdUI *pCmdUI);
 	afx_msg void OnOpaqueMaterials();
 

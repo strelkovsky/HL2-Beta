@@ -669,16 +669,6 @@ BOOL CWorldcraft::InitInstance(void)
 	CCommandLineInfo cmdInfo;
 	ParseCommandLine(cmdInfo);
 
-	if(!cmdInfo.m_strFileName.IsEmpty())
-	{
-		// we don't want to make a new file (default behavior if no file
-		//  is specified on the commandline.)
-
-		// Dispatch commands specified on the command line
-		if (!ProcessShellCommand(cmdInfo))
-			return FALSE;
-	}
-
 	//
 	// The main window has been initialized, so show and update it.
 	//
@@ -692,6 +682,8 @@ BOOL CWorldcraft::InitInstance(void)
 	// Load the options.
 	//
 	Options.Init();
+	if (!g_pGameConfig)
+		return FALSE;
 
 	//
 	// Initialize the texture manager and load all textures.
@@ -710,6 +702,9 @@ BOOL CWorldcraft::InitInstance(void)
 	}
 
 	g_Textures.LoadAllGraphicsFiles();
+
+	if (!cmdInfo.m_strFileName.IsEmpty() && !ProcessShellCommand(cmdInfo))
+		return FALSE;
 
 	return TRUE;
 }
@@ -1027,8 +1022,7 @@ BOOL CWorldcraft::PreTranslateMessage(MSG* pMsg)
 //-----------------------------------------------------------------------------
 void CWorldcraft::LoadSequences(void)
 {
-	ifstream file("CmdSeq.wc", ios::in | ios::binary | 
-		ios::nocreate);
+	ifstream file("CmdSeq.wc", ios::in | ios::binary);
 	
 	if(!file.is_open())
 		return;	// none to load
@@ -1243,21 +1237,16 @@ int CWorldcraft::Run(void)
 		//
 		// Pump messages until the message queue is empty.
 		//
-		while (::PeekMessage(&m_msgCur, NULL, NULL, NULL, PM_REMOVE))
+		MSG msg;
+		while (::PeekMessage(&msg, NULL, NULL, NULL, PM_NOREMOVE))
 		{
-			if (m_msgCur.message == WM_QUIT)
+			if (!PumpMessage())
 			{
-				return(ExitInstance());
-			}
-
-			if (!PreTranslateMessage(&m_msgCur))
-			{
-				::TranslateMessage(&m_msgCur);
-				::DispatchMessage(&m_msgCur);
+				return ExitInstance();
 			}
 
 			// Reset idle state after pumping idle message.
-			if (IsIdleMessage(&m_msgCur))
+			if (IsIdleMessage(&msg))
 			{
 				bIdle = true;
 				lIdleCount = 0;

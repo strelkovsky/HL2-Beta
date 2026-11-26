@@ -208,7 +208,7 @@ void BoundBox::GetBoundsSize(Vector& size)
 //-----------------------------------------------------------------------------
 static int Snap(/*int*/ float iValue, int iGridSize)
 {
-	return (int)(rint(iValue/iGridSize) * iGridSize);
+	return (int)(RoundToNearest(iValue/iGridSize) * iGridSize);
 }
 
 

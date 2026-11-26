@@ -2,7 +2,7 @@
 #ifndef _GAMEPALETTE_H
 #define _GAMEPALETTE_H
 
-#include <d3drmdef.h>
+#include "../dx8sdk/include/d3drmdef.h"
 
 class CGamePalette
 {

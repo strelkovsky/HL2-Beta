@@ -513,7 +513,7 @@ void StockSpike::CreateMapSolid(CMapSolid *pSolid)
 	for(int i = 0; i < nSides+1; i++)
 	{
 		// YWB rounding???
-		pmPoints[i][2] = rint(origin[2] - fHeight);
+		pmPoints[i][2] = RoundToNearest(origin[2] - fHeight);
 	}
 
 	NewFace.CreateFace(pmPoints, -nSides);
@@ -526,7 +526,7 @@ void StockSpike::CreateMapSolid(CMapSolid *pSolid)
 	Points[0][0] = origin[0];
 	Points[0][1] = origin[1];
 	// YWB rounding???
-	Points[0][2] = rint(origin[2] + fHeight);
+	Points[0][2] = RoundToNearest(origin[2] + fHeight);
 
 	for(i = 0; i < nSides; i++)
 	{

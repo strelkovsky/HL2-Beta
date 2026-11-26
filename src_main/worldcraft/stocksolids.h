@@ -11,7 +11,7 @@
 #pragma once
 #endif
 
-#include <fstream.h>
+#include "wc_fstream.h"
 #include "Vector.h"
 
 

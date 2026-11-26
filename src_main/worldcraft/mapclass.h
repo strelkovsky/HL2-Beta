@@ -16,7 +16,7 @@
 #pragma once
 
 
-#include <fstream.h>
+#include "wc_fstream.h"
 #include <afxtempl.h>
 #include <afxcoll.h>
 #include "BoundBox.h"

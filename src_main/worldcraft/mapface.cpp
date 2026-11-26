@@ -597,13 +597,13 @@ void CMapFace::NormalizeTextureShifts(void)
 	//
 	for (int nDim = 0; nDim < 4; nDim++)
 	{
-		int nValue = rint(texture.UAxis[nDim]);
+		int nValue = RoundToNearest(texture.UAxis[nDim]);
 		if (fabs(texture.UAxis[nDim] - nValue) < TEXTURE_AXIS_ROUND_EPSILON)
 		{
 			texture.UAxis[nDim] = nValue;
 		}
 
-		nValue = rint(texture.VAxis[nDim]);
+		nValue = RoundToNearest(texture.VAxis[nDim]);
 		if (fabs(texture.VAxis[nDim] - nValue) < TEXTURE_AXIS_ROUND_EPSILON)
 		{
 			texture.VAxis[nDim] = nValue;

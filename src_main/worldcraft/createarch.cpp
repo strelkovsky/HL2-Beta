@@ -43,8 +43,8 @@ void MakeArc(float x1, float y1, float x2, float y2, int npoints, float start_an
         if ( angle > 360 )
            angle -= 360;
 
-        points[point][0] = rint(xCenter + (float)sin(DEG2RAD(angle)) * xrad);
-        points[point][1] = rint(yCenter + (float)cos(DEG2RAD(angle)) * yrad);
+        points[point][0] = RoundToNearest(xCenter + (float)sin(DEG2RAD(angle)) * xrad);
+        points[point][1] = RoundToNearest(yCenter + (float)cos(DEG2RAD(angle)) * yrad);
 
 		angle += angle_delta;
     }

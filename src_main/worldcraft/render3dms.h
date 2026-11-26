@@ -46,7 +46,6 @@ class CMapWorld;
 class IEditorTexture;
 class IMaterial;
 class IMaterialVar;
-class CUtlVector;
 
 enum Visibility_t;
 

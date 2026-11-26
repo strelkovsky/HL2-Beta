@@ -1229,7 +1229,7 @@ bool CMaterial::Initialize( char *pszMaterialsDir, HWND hwnd )
 		return(false);
 	}
 
-	char* pShader = "shaderapidx9.dll";
+	char* pShader = "shaderapidx8.dll";
 
 	//
 	// Init the game and mod dirs in the file system.

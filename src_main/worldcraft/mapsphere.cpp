@@ -181,7 +181,7 @@ CMapClass *CMapSphere::CopyFrom(CMapClass *pObject, bool bUpdateDependencies)
 //-----------------------------------------------------------------------------
 void CMapSphere::SetRadius(float flRadius)
 {
-	m_flRadius = rint(flRadius);
+	m_flRadius = RoundToNearest(flRadius);
 
 	CMapEntity *pEntity = dynamic_cast <CMapEntity *>(Parent);
 	if (pEntity != NULL)

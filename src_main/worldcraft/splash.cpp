@@ -20,7 +20,7 @@ static char BASED_CODE THIS_FILE[] = __FILE__;
 #include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "StatusBarIDs.h"
+#include <afxpriv.h>
 
 unsigned char g_CantTouchThis[] = 
 {
@@ -118,22 +118,23 @@ void PlayMIDISong(LPTSTR szMIDIFileName, BOOL bRestart)
 	  CloseMIDIPlayer();
 }
 
-void CantTouchThisThread( void * )
+void CantTouchThisThread( void *pWindow )
 {
+	HWND hWnd = static_cast<HWND>(pWindow);
 	int file = _open( "hamrtime.mid", _O_BINARY| _O_CREAT | _O_RDWR, _S_IREAD | _S_IWRITE );
 	if ( file != -1 )
 	{
-		AfxGetApp()->GetMainWnd()->SetWindowText( "Hammer time!" );
-		SetStatusText(SBI_PROMPT, "Stop, Hammer time!");
+		::SetWindowText(hWnd, "Hammer time!");
+		::SendMessage(hWnd, WM_SETMESSAGESTRING, 0, reinterpret_cast<LPARAM>("Stop, Hammer time!"));
 		bool fPlay = ( _write( file, g_CantTouchThis, sizeof( g_CantTouchThis ) ) == sizeof( g_CantTouchThis ) );
 		_close( file );
 		PlayMIDISong("hamrtime.mid", false );
 		CloseMIDIPlayer();
 		_unlink( "hamrtime.mid" );
-		SetStatusText(SBI_PROMPT, "You can't touch this");
-		AfxGetApp()->GetMainWnd()->SetWindowText( "Hammer" );
+		::SendMessage(hWnd, WM_SETMESSAGESTRING, 0, reinterpret_cast<LPARAM>("You can't touch this"));
+		::SetWindowText(hWnd, "Hammer");
 		Sleep(1500);
-		SetStatusText(SBI_PROMPT, "For Help, press F1");
+		::SendMessage(hWnd, WM_SETMESSAGESTRING, AFX_IDS_IDLEMESSAGE, 0);
 	}
 }
 
@@ -142,7 +143,7 @@ void CantTouchThis()
 	if ( !AfxGetApp()->GetProfileInt("General", "Hammer time", 0))
 	{
 		AfxGetApp()->WriteProfileInt("General", "Hammer time", 1);
-		_beginthread( CantTouchThisThread, 0, NULL );
+		_beginthread( CantTouchThisThread, 0, AfxGetMainWnd()->GetSafeHwnd() );
 	}
 }
 

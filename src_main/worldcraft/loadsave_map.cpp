@@ -86,13 +86,13 @@ static void GetLine(fstream& file, char *buf)
 
 	while(1)
 	{
-		file.eatwhite();
+		file >> std::ws;
 		file.getline(szBuf, 512);
 		if(file.eof())
 			return;
 		if(!strncmp(szBuf, "//", 2))
 			continue;
-		file.eatwhite();
+		file >> std::ws;
 		if(buf)
 		{
 //			char *p = strchr(szBuf, '\n');
@@ -231,9 +231,18 @@ static int SaveEntityChildrenOf(CMapClass *pObject, fstream& file, BoundBox *pIn
 static int ReadSolids(CMapClass *pObject, fstream& file)
 {
 	int nSolids = 0;
-	int iPercent;
-	int fd = file.fd();
-	int iLength = filelength(fd);
+	std::streamoff length = 0;
+	if (pProgDlg)
+	{
+		const std::streampos start = file.tellg();
+		if (start != std::streampos(-1))
+		{
+			file.seekg(0, ios::end);
+			length = file.tellg();
+			file.clear();
+			file.seekg(start);
+		}
+	}
 	char szBuf[128];
 
 	while(1)
@@ -262,10 +271,11 @@ static int ReadSolids(CMapClass *pObject, fstream& file)
 		else
 			pObject->AddChild(pSolid);
 
-		if(pProgDlg && !(nSolids % 10))
-		{ 
-			iPercent = tell(fd) * 100 / iLength;
-			pProgDlg->SetPos(iPercent);
+		if (pProgDlg && length > 0 && !(nSolids % 10))
+		{
+			const std::streamoff position = file.tellg();
+			if (position >= 0)
+				pProgDlg->SetPos(static_cast<int>(position * 100 / length));
 		}
 
 		++nSolids;
@@ -381,9 +391,9 @@ int CMapFace::SerializeMAP(fstream& file, BOOL fIsStoring)
 		//
 		for (int nPlane = 0; nPlane < 3; nPlane++)
 		{
-			plane.planepts[nPlane][0] = rint(plane.planepts[nPlane][0]);
-			plane.planepts[nPlane][1] = rint(plane.planepts[nPlane][1]);
-			plane.planepts[nPlane][2] = rint(plane.planepts[nPlane][2]);
+			plane.planepts[nPlane][0] = RoundToNearest(plane.planepts[nPlane][0]);
+			plane.planepts[nPlane][1] = RoundToNearest(plane.planepts[nPlane][1]);
+			plane.planepts[nPlane][2] = RoundToNearest(plane.planepts[nPlane][2]);
 		}
 
 		//

@@ -591,7 +591,7 @@ CHistoryTrack::CHistoryTrack(CHistory *pParent, CMapObjectList *pSelected)
 	nData = 0;
 	uDataSize = 0;
 
-	static dwTrackerID = 1;	// objects start at 0, so we don't want to
+	static DWORD dwTrackerID = 1;	// objects start at 0, so we don't want to
 	dwID = dwTrackerID ++;
 	
 	// add to local list of selected objects at time of creation

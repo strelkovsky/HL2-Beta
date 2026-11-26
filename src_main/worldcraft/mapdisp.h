@@ -22,7 +22,7 @@
 
 //=============================================================================
 
-#include <fstream.h>
+#include "wc_fstream.h"
 #include <UtlVector.h>
 #include "MapAtom.h"
 #include "Render3D.h"

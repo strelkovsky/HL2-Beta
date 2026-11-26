@@ -32,7 +32,7 @@ TokenReader::TokenReader(void)
 //-----------------------------------------------------------------------------
 bool TokenReader::Open(const char *pszFilename)
 {
-	open(pszFilename, ios::in | ios::binary | ios::nocreate);
+	open(pszFilename, std::ios::in | std::ios::binary);
 	strcpy(m_szFilename, pszFilename);
 	m_nLine = 1;
 	m_nErrorCount = 0;
@@ -89,7 +89,16 @@ trtoken_t TokenReader::GetString(char *pszStore, int nSize)
 		//
 		// Fetch the next batch of text from the file.
 		//
-		get(szBuf, sizeof(szBuf), '\"');
+		// An empty quoted string would set failbit if passed to get().
+		if (peek() == '\"')
+		{
+			szBuf[0] = '\0';
+		}
+		else if (!get(szBuf, sizeof(szBuf), '\"'))
+		{
+			*pszStore = '\0';
+			return TOKENSTRINGTOOLONG;
+		}
 
 		//
 		// Transfer the text to the destination buffer.
@@ -220,7 +229,7 @@ trtoken_t TokenReader::NextToken(char *pszStore, int nSize)
 	
 	SkipWhiteSpace();
 
-	if (eof())
+	if (!good())
 	{
 		return TOKENEOF;
 	}
@@ -415,7 +424,9 @@ bool TokenReader::SkipWhiteSpace(void)
 
 	while (true)
 	{
-		char ch = get();
+		const int ch = get();
+		if (ch == traits_type::eof())
+			return bCombineStrings;
 
 		if ((ch == ' ') || (ch == '\t') || (ch == '\r') || (ch == 0))
 		{
@@ -432,11 +443,6 @@ bool TokenReader::SkipWhiteSpace(void)
 		{
 			m_nLine++;
 			continue;
-		}
-
-		if (eof())
-		{
-			return(bCombineStrings);
 		}
 
 		//

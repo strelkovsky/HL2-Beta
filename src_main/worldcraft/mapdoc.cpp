@@ -847,9 +847,9 @@ BOOL CMapDoc::FindEntityCallback(CMapClass *pObject, FindEntity_t *pFindInfo)
 		// HACK: Round to origin integers since entity origins are rounded when
 		//       saving to MAP file. This makes finding entities from the engine
 		//       in Worldcraft work.
-		Pos[0] = rint(Pos[0]);
-		Pos[1] = rint(Pos[1]);
-		Pos[2] = rint(Pos[2]);
+		Pos[0] = RoundToNearest(Pos[0]);
+		Pos[1] = RoundToNearest(Pos[1]);
+		Pos[2] = RoundToNearest(Pos[2]);
 
 		if (VectorCompare(Pos, pFindInfo->Pos))
 		{
@@ -919,9 +919,9 @@ CMapEntity *CMapDoc::FindEntity(const char *pszClassName, float x, float y, floa
 
 		// dvs: HACK - only find by integer coordinates because Worldcraft rounds
 		//		entity origins when saving the MAP file.
-		FindInfo.Pos[0] = rint(x);
-		FindInfo.Pos[1] = rint(y);
-		FindInfo.Pos[2] = rint(z);
+		FindInfo.Pos[0] = RoundToNearest(x);
+		FindInfo.Pos[1] = RoundToNearest(y);
+		FindInfo.Pos[2] = RoundToNearest(z);
 
 		m_pWorld->EnumChildren((ENUMMAPCHILDRENPROC)FindEntityCallback, (DWORD)&FindInfo, MAPCLASS_TYPE(CMapEntity));
 
@@ -1917,7 +1917,7 @@ BOOL CMapDoc::OnOpenDocument(LPCTSTR lpszPathName)
 
 	if ((bRMF) || (bMAP))
 	{
-		fstream file(lpszPathName, ios::in | ios::binary | ios::nocreate);
+		fstream file(lpszPathName, ios::in | ios::binary);
 		if (!file.is_open())
 		{
 			return(FALSE);
@@ -3224,7 +3224,7 @@ void CMapDoc::OnEditToWorld(void)
 //-----------------------------------------------------------------------------
 void CMapDoc::OnToolsSubtractselection(void)
 {
-	if (Selection_GetCount == 0)
+	if (Selection_GetCount() == 0)
 	{
 		return;
 	}
@@ -6520,7 +6520,7 @@ int CMapDoc::Snap(float x)
 		return (int)x;
 	}
 
-	return rint(x / m_nGridSpacing) * m_nGridSpacing;
+	return RoundToNearest(x / m_nGridSpacing) * m_nGridSpacing;
 }
 
 
@@ -6575,7 +6575,7 @@ void CMapDoc::Snap(Vector &pt, int nFlags)
 
 	for (int i = 0; i < 3; i++)
 	{
-		pt[i] = rint(pt[i] / flGridSpacing) * flGridSpacing;
+		pt[i] = RoundToNearest(pt[i] / flGridSpacing) * flGridSpacing;
 	}
 }
 
@@ -6597,8 +6597,8 @@ void CMapDoc::Snap(CPoint &pt)
 		nGridSpacing = 1;
 	}
 	
-	pt.x = (int)(rint((float)pt.x / nGridSpacing) * nGridSpacing);
-	pt.y = (int)(rint((float)pt.y / nGridSpacing) * nGridSpacing);
+	pt.x = (int)(RoundToNearest((float)pt.x / nGridSpacing) * nGridSpacing);
+	pt.y = (int)(RoundToNearest((float)pt.y / nGridSpacing) * nGridSpacing);
 }
 
 

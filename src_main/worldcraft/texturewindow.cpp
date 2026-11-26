@@ -6,7 +6,7 @@
 //=============================================================================
 
 #include "stdafx.h"
-#include <fstream.h>
+#include "wc_fstream.h"
 #include "Worldcraft.h"
 #include "TextureWindow.h"
 #include "TextureBrowser.h"

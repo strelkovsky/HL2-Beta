@@ -310,6 +310,7 @@ class RICHED_DECL CRTFBuilder
 		void normal();
 		void size(int n);
 		void font(const CString &i);
+		void font(int index) { m_attr.m_nFontNumber = index; }
 		void black();
 		void blue();
 		void green();
@@ -320,7 +321,7 @@ class RICHED_DECL CRTFBuilder
 		void push();
 		void pop();
 		
-		operator+=(CString &s);
+		CRTFBuilder &operator+=(const CString &s) { return operator+=(static_cast<LPCTSTR>(s)); }
 		CRTFBuilder();
 		virtual ~CRTFBuilder();
 
