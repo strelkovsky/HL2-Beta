@@ -58,6 +58,8 @@
 #include "ModelInfo.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
+#include "mdl44_modelcache.h"
+
 #include "tier0/memdbgon.h"
 
 
@@ -228,6 +230,8 @@ void Mod_UnloadStudioModel(model_t *mod)
 //=============================================================================
 vcollide_t *Mod_VCollide( model_t *pModel )
 {
+	// Its legacy fallback header has no native v44 collision data.
+	if ( Mdl44ModelCacheHas( pModel ) ) return NULL;
 	if ( pModel->type != mod_studio )
 	{
 		return NULL;

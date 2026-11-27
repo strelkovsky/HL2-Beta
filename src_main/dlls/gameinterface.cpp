@@ -48,6 +48,9 @@
 #include "tier0/vprof.h"
 #include "effect_dispatch_data.h"
 #include "engine/IStaticPropMgr.h"
+#include "imdl44modelinfo.h"
+
+IMdl44ModelInfo *g_pServerMdl44ModelInfo = NULL;
 #include "TemplateEntities.h"
 #include "ai_speech.h"
 #include "soundenvelope.h"
@@ -303,6 +306,9 @@ bool CServerGameDLL::DLLInit(CreateInterfaceFn engineFactory,
 		return false;
 	}
 
+	// Optional until the server's animation code supports native v44 models.
+	g_pServerMdl44ModelInfo = (IMdl44ModelInfo *)engineFactory( MDL44_MODEL_INFO_VERSION, NULL );
+
 	// cache the globals
 	gpGlobals = pGlobals;
 
@@ -344,6 +350,7 @@ bool CServerGameDLL::DLLInit(CreateInterfaceFn engineFactory,
 
 void CServerGameDLL::DLLShutdown( void )
 {
+	g_pServerMdl44ModelInfo = NULL;
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetTemplateSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetAISaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetPhysSaveRestoreBlockHandler() );

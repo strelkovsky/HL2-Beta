@@ -29,11 +29,11 @@ namespace Mdl44Animation
     {
         using namespace Mdl44Skeleton;
         const size_t headerSize = 360, descSize = 100;
-        if (!p || size < headerSize || std::memcmp(p, "IDST", 4) || ReadU32(p, 4) != 44) return false;
-        const size_t length = ReadU32(p, 76);
-        if (length < headerSize || length > size) return false;
-        const uint32_t count = ReadU32(p, 180), start = ReadU32(p, 184);
-        const uint32_t blockCount = ReadU32(p, 352), blockStart = ReadU32(p, 356);
+        Studio44::studiohdr_t header;
+        if (!Studio44::ReadHeader(p,size,headerSize,header)) return false;
+        const size_t length=static_cast<size_t>(header.length);
+        const uint32_t count=static_cast<uint32_t>(header.numlocalanim), start=static_cast<uint32_t>(header.localanimindex);
+        const uint32_t blockCount=static_cast<uint32_t>(header.numanimblocks), blockStart=static_cast<uint32_t>(header.animblockindex);
         if (start > length || count > (length - start) / descSize || blockStart > length ||
             blockCount > (length - blockStart) / 8) return false;
         Animations result;

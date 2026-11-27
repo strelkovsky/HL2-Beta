@@ -7,12 +7,15 @@
 #include "gl_matsysiface.h"
 #include "istudiorender44.h"
 #include "imdl44entitypreview.h"
+#include "imdl44modelinfo.h"
+#include "mdl44_modelcache.h"
 #include "interface.h"
 #include "mdl44_model.h"
 #include "mdl44_mapcache.h"
 #include "mdl44_skeleton.h"
 #include "mdl44_animation.h"
 #include "mdl44_sequence.h"
+#include "mdl44_virtual.h"
 #include "mdl44_binding.h"
 #include <climits>
 
@@ -30,6 +33,135 @@ static bool ReadModelFile44( const std::string &name, std::vector<unsigned char>
     g_pFileSystem->Close( file );
     if ( ok ) out.swap( contents );
     return ok;
+}
+
+// Build a virtual model in the same depth-first include order as SE2007.
+// Used for native metadata caching and the standalone diagnostic.
+static bool LoadVirtualGroup44(const std::string &name, Mdl44Virtual::Model &model, std::vector<std::string> &stack)
+{
+    if (stack.size() >= 32) { Warning("MDL 44 virtual model: include depth exceeded at %s\n",name.c_str()); return false; }
+    for(size_t i=0;i<stack.size();++i)
+        if(Mdl44Sequence::EqualName(stack[i],name)) { Warning("MDL 44 virtual model: include cycle at %s\n",name.c_str()); return false; }
+    std::vector<unsigned char> bytes; Mdl44Skeleton::Skeleton skeleton;
+    Mdl44Animation::Animations anims; Mdl44Sequence::Data sequences;
+    if(!ReadModelFile44(name,bytes) || !Mdl44Skeleton::Parse(bytes.data(),bytes.size(),skeleton) ||
+       !Mdl44Animation::Parse(bytes.data(),bytes.size(),anims) || !Mdl44Sequence::Parse(bytes.data(),bytes.size(),sequences) ||
+       !model.Append(name.c_str(),skeleton,anims,sequences))
+    { Warning("MDL 44 virtual model: cannot load %s\n",name.c_str()); return false; }
+    stack.push_back(name);
+    for(size_t i=0;i<sequences.includes.size();++i)
+        if(!LoadVirtualGroup44(sequences.includes[i].name,model,stack)) { stack.pop_back(); return false; }
+    stack.pop_back();
+    return true;
+}
+
+// Metadata is attached to the engine model object, not its mutable legacy name.
+// Kept separate until all users of studiohdr_t are migrated.
+static ConVar r_mdl44_modelcache("r_mdl44_modelcache", "1", 0, "Cache native v44 sequence metadata when models load.");
+struct Mdl44CachedModel
+{
+    model_t *identity;
+    std::string originalName;
+    Studio44::studiohdr_t header;
+    Mdl44Virtual::Model virtualModel;
+};
+static std::vector<Mdl44CachedModel *> s_Mdl44Models;
+static Mdl44CachedModel *FindCached44(const model_t *identity)
+{
+    for(size_t i=0;i<s_Mdl44Models.size();++i) if(s_Mdl44Models[i]->identity==identity) return s_Mdl44Models[i];
+    return NULL;
+}
+bool Mdl44ModelCacheHas(const model_t *model) { return FindCached44(model)!=NULL; }
+void Mdl44ModelCacheDetach(model_t *model)
+{
+    for(size_t i=0;i<s_Mdl44Models.size();++i)
+        if(s_Mdl44Models[i]->identity==model)
+        { delete s_Mdl44Models[i]; s_Mdl44Models.erase(s_Mdl44Models.begin()+i); return; }
+}
+void Mdl44ModelCacheAttach(model_t *model, const char *name)
+{
+    Mdl44ModelCacheDetach(model);
+    if(!r_mdl44_modelcache.GetBool() || !model || !name || !*name) return;
+    Mdl44CachedModel *cached=new Mdl44CachedModel; cached->identity=model; cached->originalName=name;
+    std::vector<std::string> stack; std::vector<unsigned char> root;
+    if(!ReadModelFile44(name,root) || !Studio44::ReadHeader(root.data(),root.size(),sizeof(cached->header),cached->header) ||
+       !LoadVirtualGroup44(name,cached->virtualModel,stack)) { delete cached; return; }
+    s_Mdl44Models.push_back(cached);
+    Msg("MDL 44 model cache: %s: %u groups, %u sequences\n",cached->originalName.c_str(),
+        static_cast<unsigned>(cached->virtualModel.Groups().size()),
+        static_cast<unsigned>(cached->virtualModel.Sequences().size()));
+}
+class Mdl44ModelInfo : public IMdl44ModelInfo
+{
+public:
+    virtual bool HasModel(const model_t *model) const { return FindCached44(model)!=NULL; }
+    virtual bool GetStudioHeader(const model_t *model, Studio44::studiohdr_t &out) const
+    { Mdl44CachedModel *c=FindCached44(model); if(!c) return false; out=c->header; return true; }
+    virtual const char *OriginalName(const model_t *model) const
+    { Mdl44CachedModel *c=FindCached44(model); return c ? c->originalName.c_str() : NULL; }
+    virtual int SequenceCount(const model_t *model) const
+    { Mdl44CachedModel *c=FindCached44(model); return c ? static_cast<int>(c->virtualModel.Sequences().size()) : 0; }
+    virtual int FindSequence(const model_t *model, const char *name) const
+    {
+        Mdl44CachedModel *c=FindCached44(model); if(!c || !name) return -1;
+        const Mdl44Virtual::Entry *found=c->virtualModel.FindSequence(name);
+        return found ? static_cast<int>(found-&c->virtualModel.Sequences()[0]) : -1;
+    }
+    virtual const char *SequenceName(const model_t *model, int sequence) const
+    {
+        Mdl44CachedModel *c=FindCached44(model);
+        if(!c || sequence<0 || static_cast<size_t>(sequence)>=c->virtualModel.Sequences().size()) return NULL;
+        const Mdl44Virtual::Entry &entry=c->virtualModel.Sequences()[sequence];
+        return c->virtualModel.Groups()[entry.group].sequences.sequences[entry.index].label.c_str();
+    }
+};
+static Mdl44ModelInfo s_Mdl44ModelInfo;
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44ModelInfo, IMdl44ModelInfo, MDL44_MODEL_INFO_VERSION, s_Mdl44ModelInfo);
+
+CON_COMMAND( mdl44_cache_check, "Inspect a loaded model's experimental MDL 44 metadata." )
+{
+    if(Cmd_Argc()<2 || Cmd_Argc()>3) { Msg("Usage: mdl44_cache_check models/path/model.mdl [sequence]\n"); return; }
+    for(size_t i=0;i<s_Mdl44Models.size();++i)
+    {
+        Mdl44CachedModel *c=s_Mdl44Models[i];
+        if(!Mdl44Sequence::EqualName(c->originalName,Cmd_Argv(1))) continue;
+        Studio44::studiohdr_t header;
+        if (!s_Mdl44ModelInfo.GetStudioHeader(c->identity,header)) return;
+        Msg("MDL 44 cache: %s: header version %d, %d sequences\n",c->originalName.c_str(),header.version,s_Mdl44ModelInfo.SequenceCount(c->identity));
+        if(Cmd_Argc()==3)
+        {
+            int seq=s_Mdl44ModelInfo.FindSequence(c->identity,Cmd_Argv(2));
+            Msg("  sequence %s: %d%s\n",Cmd_Argv(2),seq,seq<0 ? " (not found)" : "");
+        }
+        return;
+    }
+    Msg("MDL 44 cache: %s is not cached\n",Cmd_Argv(1));
+}
+
+CON_COMMAND( mdl44_virtual_check, "Inspect MDL 44 included models and virtual sequences." )
+{
+    if(Cmd_Argc()<2 || Cmd_Argc()>3) { Msg("Usage: mdl44_virtual_check models/path/model.mdl [sequence]\n"); return; }
+    Mdl44Virtual::Model model; std::vector<std::string> stack;
+    if(!LoadVirtualGroup44(Cmd_Argv(1),model,stack)) return;
+    Msg("MDL 44 virtual model: %u groups, %u sequences, %u animations\n",
+        static_cast<unsigned>(model.Groups().size()),static_cast<unsigned>(model.Sequences().size()),
+        static_cast<unsigned>(model.Animations().size()));
+    for(size_t i=0;i<model.Groups().size();++i)
+    {
+        const Mdl44Virtual::Group &group=model.Groups()[i]; size_t mapped=0,invalid=0;
+        for(size_t j=0;j<group.masterBone.size();++j) if(group.masterBone[j]>=0) ++mapped;
+        for(size_t j=0;j<group.sequences.sequences.size();++j)
+            for(size_t k=0;k<group.sequences.sequences[j].layers.size();++k)
+                if(!group.sequences.sequences[j].layers[k].validTiming) ++invalid;
+        Msg("  %s: %u/%u bones mapped, %u invalid layers\n",group.name.c_str(),static_cast<unsigned>(mapped),
+            static_cast<unsigned>(group.masterBone.size()),static_cast<unsigned>(invalid));
+    }
+    if(Cmd_Argc()==3)
+    {
+        const Mdl44Virtual::Entry *entry=model.FindSequence(Cmd_Argv(2));
+        if(entry) Msg("  sequence %s -> %s (local %u)\n",Cmd_Argv(2),model.Groups()[entry->group].name.c_str(),static_cast<unsigned>(entry->index));
+        else Msg("  sequence %s not found\n",Cmd_Argv(2));
+    }
 }
 
 static bool LoadModelGeometry44( const std::string &name, Mdl44::StudioModel &model, bool staticOnly )
@@ -240,6 +372,11 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
     return handles.Count() != 0;
 }
 
+static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin);
+static bool Mdl44RigidEntityBounds(const char *name, float *mins, float *maxs);
+static void Mdl44RigidEntityReleaseGpu();
+static void Mdl44RigidEntityShutdown();
+
 // A deliberately isolated preview while sequence selection and VCD playback
 // are being implemented. It does not change the legacy model loader.
 class Mdl44EntityPreview : public IMdl44EntityPreview
@@ -255,7 +392,8 @@ public:
     }
     virtual bool Draw(const char *name, const float *transform, unsigned int skin, float time)
     {
-        if (!name || _stricmp(name,"models/gman_high.mdl") || !transform) return false;
+        if (!name || !transform) return false;
+        if (_stricmp(name,"models/gman_high.mdl")) return Mdl44RigidEntityDraw(name,transform,skin);
         if (!m_attempted)
         {
             m_attempted=true;
@@ -297,6 +435,8 @@ public:
         }
         return true;
     }
+    virtual bool RigidBounds(const char *name, float *mins, float *maxs)
+    { return Mdl44RigidEntityBounds(name,mins,maxs); }
 private:
     Studio44MeshOwner *m_gpu;
     bool m_attempted, m_valid, m_logged;
@@ -308,8 +448,8 @@ private:
 };
 static Mdl44EntityPreview s_Mdl44EntityPreview;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44EntityPreview, IMdl44EntityPreview, MDL44_ENTITY_PREVIEW_VERSION, s_Mdl44EntityPreview);
-void Mdl44EntityPreviewReleaseGpu() { s_Mdl44EntityPreview.ReleaseGpu(); }
-void Mdl44EntityPreviewShutdown() { s_Mdl44EntityPreview.Shutdown(); }
+void Mdl44EntityPreviewReleaseGpu() { Mdl44RigidEntityReleaseGpu(); s_Mdl44EntityPreview.ReleaseGpu(); }
+void Mdl44EntityPreviewShutdown() { Mdl44RigidEntityShutdown(); s_Mdl44EntityPreview.Shutdown(); }
 
 struct Mdl44MapCache
 {
@@ -393,6 +533,44 @@ bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache, unsigned int skin )
 
 bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache, unsigned int skin )
 { return cache && cache->gpu && cache->gpu->HasTranslucent( skin ); }
+
+// Rigid v44 models are safe to draw with the existing static-prop renderer.
+// Cache failed lookups too, since ordinary animated entities are not supported here.
+struct Mdl44RigidEntry { std::string name; Mdl44MapCache *cache; bool logged; };
+static std::vector<Mdl44RigidEntry> s_Mdl44RigidEntities;
+static Mdl44RigidEntry *GetRigidEntity44(const char *name)
+{
+    if (!name || !*name) return NULL;
+    for(size_t i=0;i<s_Mdl44RigidEntities.size();++i)
+        if(Mdl44Sequence::EqualName(s_Mdl44RigidEntities[i].name,name)) return &s_Mdl44RigidEntities[i];
+    Mdl44RigidEntry entry; entry.name=name; entry.logged=false; entry.cache=Mdl44MapCacheCreate(name);
+    if (entry.cache && entry.cache->model.Description().boneCount!=1)
+    { Mdl44MapCacheDestroy(entry.cache); entry.cache=NULL; }
+    s_Mdl44RigidEntities.push_back(entry);
+    return &s_Mdl44RigidEntities.back();
+}
+static bool Mdl44RigidEntityBounds(const char *name,float *mins,float *maxs)
+{
+    Mdl44RigidEntry *entry=GetRigidEntity44(name); float illumination[3];
+    return entry && entry->cache && Mdl44MapCacheBounds(entry->cache,mins,maxs,illumination);
+}
+static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigned int skin)
+{
+    Mdl44RigidEntry *entry=GetRigidEntity44(name);
+    if(!entry || !entry->cache || !Mdl44MapCacheCreateGpu(entry->cache) ||
+       !Mdl44MapCacheDraw(entry->cache,transform,skin,1.0f,MDL44_DRAW_ALL)) return false;
+    if(!entry->logged) { Msg("MDL 44 rigid entity: %s\n",name); entry->logged=true; }
+    return true;
+}
+static void Mdl44RigidEntityReleaseGpu()
+{
+    for(size_t i=0;i<s_Mdl44RigidEntities.size();++i) Mdl44MapCacheReleaseGpu(s_Mdl44RigidEntities[i].cache);
+}
+static void Mdl44RigidEntityShutdown()
+{
+    for(size_t i=0;i<s_Mdl44RigidEntities.size();++i) Mdl44MapCacheDestroy(s_Mdl44RigidEntities[i].cache);
+    s_Mdl44RigidEntities.clear();
+}
 
 CON_COMMAND( mdl44_skeleton_check, "Validate an MDL 44 skeleton." )
 {

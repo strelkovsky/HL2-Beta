@@ -25,6 +25,7 @@
 #include "enginesprite.h"
 #include "networkstringtable_clientdll.h"
 #include "imdl44entitypreview.h"
+#include "imdl44modelinfo.h"
 #include "voice_status.h"
 #include "c_terrainmodmgr.h"
 #include "FileSystem.h"
@@ -77,6 +78,7 @@ IEngineVGui *enginevgui = NULL;
 INetGraph *netgraph = NULL;
 INetworkStringTableClient *networkstringtable = NULL;
 IMdl44EntityPreview *g_pMdl44EntityPreview = NULL;
+IMdl44ModelInfo *g_pClientMdl44ModelInfo = NULL;
 ISpatialPartition* partition = NULL;
 IFileSystem *filesystem = NULL;
 IShadowMgr *shadowmgr = NULL;
@@ -304,6 +306,7 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	}
 
 	g_pMdl44EntityPreview = (IMdl44EntityPreview *)appSystemFactory( MDL44_ENTITY_PREVIEW_VERSION, NULL );
+	g_pClientMdl44ModelInfo = (IMdl44ModelInfo *)appSystemFactory( MDL44_MODEL_INFO_VERSION, NULL );
 
 	g_pMaterialSystemHardwareConfig = materials->GetHardwareConfig( MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL );
 	if( !g_pMaterialSystemHardwareConfig )
@@ -408,6 +411,7 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 void CHLClient::Shutdown( void )
 {
 	g_pMdl44EntityPreview = NULL;
+	g_pClientMdl44ModelInfo = NULL;
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetPhysSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->RemoveBlockHandler( GetEntitiySaveRestoreBlockHandler() );
 

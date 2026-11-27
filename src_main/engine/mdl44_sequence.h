@@ -12,6 +12,7 @@ namespace Mdl44Sequence
         int16_t sequence, pose;
         int32_t flags;
         float start, peak, tail, end;
+        bool validTiming;
     };
     struct Sequence
     {
@@ -36,9 +37,10 @@ namespace Mdl44Sequence
     inline bool Parse(const unsigned char *p, size_t size, Data &out)
     {
         using namespace Mdl44Skeleton;
-        if (!p || size<344 || std::memcmp(p,"IDST",4) || ReadU32(p,4)!=44) return false;
-        const size_t length=ReadU32(p,76), seqCount=ReadU32(p,188), seqStart=ReadU32(p,192);
-        const size_t includeCount=ReadU32(p,336), includeStart=ReadU32(p,340), animCount=ReadU32(p,180);
+        Studio44::studiohdr_t header;
+        if (!Studio44::ReadHeader(p,size,344,header)) return false;
+        const size_t length=static_cast<size_t>(header.length), seqCount=static_cast<uint32_t>(header.numlocalseq), seqStart=static_cast<uint32_t>(header.localseqindex);
+        const size_t includeCount=static_cast<uint32_t>(header.numincludemodels), includeStart=static_cast<uint32_t>(header.includemodelindex), animCount=static_cast<uint32_t>(header.numlocalanim);
         const size_t seqSize=212;
         if (length<344 || length>size || seqStart>length || seqCount>(length-seqStart)/seqSize ||
             includeStart>length || includeCount>(length-includeStart)/8) return false;
@@ -62,7 +64,7 @@ namespace Mdl44Sequence
             }
             const int32_t layerCount=ReadI32(p,at+148), layerOffset=ReadI32(p,at+152);
             const int32_t weightOffset=ReadI32(p,at+156);
-            const size_t boneCount=ReadU32(p,156);
+            const size_t boneCount=static_cast<uint32_t>(header.numbones);
             if (layerCount<0 || layerOffset<0 || weightOffset<0 || boneCount>128 ||
                 static_cast<size_t>(layerOffset)>length-at || static_cast<size_t>(weightOffset)>length-at) return false;
             const size_t layerStart=at+static_cast<size_t>(layerOffset), weightStart=at+static_cast<size_t>(weightOffset);
@@ -80,9 +82,11 @@ namespace Mdl44Sequence
                 layer.flags=ReadI32(p,pos+4);
                 std::memcpy(&layer.start,p+pos+8,4); std::memcpy(&layer.peak,p+pos+12,4);
                 std::memcpy(&layer.tail,p+pos+16,4); std::memcpy(&layer.end,p+pos+20,4);
-                if (layer.sequence<0 || static_cast<size_t>(layer.sequence)>=seqCount ||
-                    !std::isfinite(layer.start) || !std::isfinite(layer.peak) ||
-                    !std::isfinite(layer.tail) || !std::isfinite(layer.end)) return false;
+                if (layer.sequence<0 || static_cast<size_t>(layer.sequence)>=seqCount) return false;
+                // Some retail animation groups contain non-finite editor data.
+                // Keep the sequence but never evaluate an invalid layer.
+                layer.validTiming=std::isfinite(layer.start) && std::isfinite(layer.peak) &&
+                                  std::isfinite(layer.tail) && std::isfinite(layer.end);
                 seq.layers.push_back(layer);
             }
             parsed.sequences.push_back(seq);

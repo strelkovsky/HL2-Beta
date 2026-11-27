@@ -32,6 +32,8 @@
 #include <limits.h>
 #include "vtx7_converter.h"
 #include "mdl44_mapcache.h"
+#include "mdl44_modelcache.h"
+#include "studio44.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -2181,11 +2183,13 @@ model_t	*CModelLoader::LoadModel( model_t *mod, REFERENCETYPE *referencetype )
 		if ( !buf || com_filesize == 0 )
 		{
 			Con_DPrintf("Model %s not found!\n", mod->name );
-			buf = (unsigned *)COM_LoadStackFile ("models/error.mdl", stackbuf, sizeof(stackbuf));
+			buf = (unsigned *)COM_LoadStackFile ("models/error_legacy.mdl", stackbuf, sizeof(stackbuf));
 			if ( !buf )
 			{
-				Sys_Error ("Mod_NumForName: %s not found and %s couldn't be loaded", mod->name, "models/error.mdl" );
+				Sys_Error ("Mod_NumForName: %s not found and %s couldn't be loaded", mod->name, "models/error_legacy.mdl" );
 			}
+			// Keep the VTX lookup consistent with the fallback header.
+			Q_strcpy( mod->name, "models/error_legacy.mdl" );
 		}
 
 		if ( LittleLong(*(unsigned *)buf) == IDSTUDIOHEADER )
@@ -3002,7 +3006,10 @@ bool Mod_LoadStudioModelVtxFileIntoTempBuffer( model_t *mod, CUtlMemory<unsigned
 	strcpy( tempFileName, "models/" );
 
 	studiohdr_t *pStudioHdr = ( studiohdr_t * )modelloader->GetExtraData( mod );
-	COM_StripExtension( pStudioHdr->name, &tempFileName[nPrefix], sizeof( tempFileName ) - nPrefix );
+	// The temporary v37 fallback has a distinct filename from the retail v44
+	// error model, although its embedded studio header still says error.mdl.
+	const char *vtxModelName = ( Mdl44ModelCacheHas( mod ) || !Q_stricmp( mod->name, "models/error_legacy.mdl" ) ) ? "error_legacy.mdl" : pStudioHdr->name;
+	COM_StripExtension( vtxModelName, &tempFileName[nPrefix], sizeof( tempFileName ) - nPrefix );
 	int namelen = strlen( tempFileName );
 
 	// FIXME:
@@ -3175,14 +3182,23 @@ void CModelLoader::Studio_LoadModel( model_t *mod, void *buffer )
 
 	mod->needload |= FMODELLOADER_LOADED;
 
-	// Load the cached part of the studiomodel
-	if( !Mod_LoadStudioModel( mod, buffer, false ) )
+	// Parse the SE2007 header under the original model identity. Legacy
+	// consumers still use a separate v37 fallback until they are migrated.
+	Studio44::studiohdr_t nativeHeader;
+	const bool isNative44 = buffer && com_filesize > 0 && Studio44::ReadHeader( (const unsigned char *)buffer,
+		static_cast<size_t>(com_filesize), sizeof(nativeHeader), nativeHeader );
+	if ( isNative44 ) Mdl44ModelCacheAttach( mod, mod->name );
+
+	// Never pass a v44 buffer to the v37 converter or cast it to its header.
+	if( isNative44 || !Mod_LoadStudioModel( mod, buffer, false ) )
 	{
 		// swap this model with "error.mdl" since it can't be loaded or is the wrong version
 		char stackbuf[1024];
-		Con_DPrintf("Model %s can't be loaded!\n", mod->name );
-		Q_strcpy( mod->name, "models/error.mdl" );
-		buffer = (unsigned *)COM_LoadStackFile (mod->name, stackbuf, sizeof(stackbuf));
+		if ( !Mdl44ModelCacheHas( mod ) ) Con_DPrintf("Model %s can't be loaded!\n", mod->name );
+		// Native models retain their real name; the old renderer still gets a
+		// distinct fallback header until its studio ABI is migrated.
+		if ( !Mdl44ModelCacheHas( mod ) ) Q_strcpy( mod->name, "models/error_legacy.mdl" );
+		buffer = (unsigned *)COM_LoadStackFile ("models/error_legacy.mdl", stackbuf, sizeof(stackbuf));
 		if ( buffer )
 		{
 			if ( !Mod_LoadStudioModel( mod, buffer, false ) )
@@ -3199,6 +3215,7 @@ void CModelLoader::Studio_LoadModel( model_t *mod, void *buffer )
 //-----------------------------------------------------------------------------
 void CModelLoader::Studio_UnloadModel( model_t *mod )
 {
+	Mdl44ModelCacheDetach( mod );
 	// leave these flags alone since we are going to return from alt-tab at some point.
 	//	Assert( !( mod->needload & FMODELLOADER_REFERENCEMASK ) );
 	mod->needload &= ~FMODELLOADER_LOADED;

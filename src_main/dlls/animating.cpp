@@ -17,6 +17,10 @@
 #include "vstdlib/strtools.h"
 #include "npcevent.h"
 #include "isaverestore.h"
+#include "imdl44modelinfo.h"
+
+extern IMdl44ModelInfo *g_pServerMdl44ModelInfo;
+static ConVar sv_mdl44_sequence_debug( "sv_mdl44_sequence_debug", "0", 0, "Log native MDL 44 sequence lookups without changing playback." );
 
 class CIKSaveRestoreOps : public CClassPtrSaveRestoreOps
 {
@@ -247,6 +251,17 @@ int CBaseAnimating::LookupActivity( const char *label )
 //=========================================================
 int CBaseAnimating::LookupSequence( const char *label )
 {
+	// Native indices cannot be used by the v37 animation API. Until that API
+	// is migrated, inspect them without passing them to the legacy renderer.
+	if ( sv_mdl44_sequence_debug.GetBool() && g_pServerMdl44ModelInfo )
+	{
+		const model_t *model = GetModel();
+		if ( model && g_pServerMdl44ModelInfo->HasModel( model ) )
+		{
+			const int nativeSequence = g_pServerMdl44ModelInfo->FindSequence( model, label );
+			Msg( "MDL 44 server lookup: %s / %s = %d\n", g_pServerMdl44ModelInfo->OriginalName( model ), label, nativeSequence );
+		}
+	}
 	Assert( GetModelPtr() );
 	return ::LookupSequence( GetModelPtr(), label );
 }

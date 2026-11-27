@@ -7,6 +7,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include "../public/studio44.h"
 
 namespace Mdl44Skeleton
 {
@@ -36,12 +37,12 @@ namespace Mdl44Skeleton
     inline bool Parse( const unsigned char *data, size_t size, Skeleton &output )
     {
         const size_t headerSize = 164, boneSize = 216, maxBones = 128;
-        if ( !data || size < headerSize || std::memcmp(data, "IDST", 4) || ReadU32(data, 4) != 44 ) return false;
-        const size_t length = ReadU32(data, 76);
-        if ( length < headerSize || length > size ) return false;
-        const uint32_t count = ReadU32(data, 156), offset = ReadU32(data, 160);
+        Studio44::studiohdr_t header;
+        if (!Studio44::ReadHeader(data,size,headerSize,header)) return false;
+        const size_t length=static_cast<size_t>(header.length);
+        const uint32_t count=static_cast<uint32_t>(header.numbones), offset=static_cast<uint32_t>(header.boneindex);
         if ( count > maxBones || offset > length || count > (length - offset) / boneSize ) return false;
-        Skeleton parsed; parsed.checksum = ReadU32(data, 8);
+        Skeleton parsed; parsed.checksum = static_cast<uint32_t>(header.checksum);
         parsed.bones.reserve(count);
         for ( uint32_t i = 0; i < count; ++i )
         {

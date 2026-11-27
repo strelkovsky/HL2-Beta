@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include "vtx7_converter.h"
+#include "../public/studio44.h"
 
 namespace Mdl44Static
 {
@@ -55,9 +56,9 @@ namespace Mdl44Static
     {
         const size_t headerSize = 240, textureSize = 64, bodySize = 16;
         const size_t modelSize = 148, meshSize = 116, vertexSize = 48;
-        if ( !p || size < headerSize || std::memcmp( p, "IDST", 4 ) || Read32( p, 4 ) != 44 ) return false;
-        const uint32_t length = Read32( p, 76 );
-        if ( length < headerSize || length > size || ( staticOnly && !( Read32( p, 152 ) & 16 ) ) ) return false;
+        Studio44::studiohdr_t header;
+        if (!Studio44::ReadHeader(p,size,headerSize,header) || (staticOnly && !(header.flags & 16))) return false;
+        const uint32_t length=static_cast<uint32_t>(header.length);
         size = length;
         Description result;
         std::memcpy( result.illumination, p + 92, 12 );
@@ -65,14 +66,14 @@ namespace Mdl44Static
         std::memcpy( result.hullMax, p + 116, 12 );
         std::memcpy( result.viewMin, p + 128, 12 );
         std::memcpy( result.viewMax, p + 140, 12 );
-        result.checksum = Read32( p, 8 ); result.boneCount = Read32( p, 156 );
+        result.checksum = static_cast<uint32_t>(header.checksum); result.boneCount = static_cast<uint32_t>(header.numbones);
         // The legacy static path remains restricted to rigid, one-bone models.
         if ( staticOnly ? result.boneCount != 1 : result.boneCount == 0 || result.boneCount > 128 ) return false;
-        const uint32_t textures = Read32( p, 204 ), textureStart = Read32( p, 208 );
-        const uint32_t paths = Read32( p, 212 ), pathStart = Read32( p, 216 );
-        result.skinRefs = Read32( p, 220 ); result.skinFamilies = Read32( p, 224 );
-        const uint32_t skinStart = Read32( p, 228 );
-        const uint32_t bodies = Read32( p, 232 ), bodyStart = Read32( p, 236 );
+        const uint32_t textures=static_cast<uint32_t>(header.numtextures), textureStart=static_cast<uint32_t>(header.textureindex);
+        const uint32_t paths=static_cast<uint32_t>(header.numcdtextures), pathStart=static_cast<uint32_t>(header.cdtextureindex);
+        result.skinRefs=static_cast<uint32_t>(header.numskinref); result.skinFamilies=static_cast<uint32_t>(header.numskinfamilies);
+        const uint32_t skinStart=static_cast<uint32_t>(header.skinindex);
+        const uint32_t bodies=static_cast<uint32_t>(header.numbodyparts), bodyStart=static_cast<uint32_t>(header.bodypartindex);
         if ( !Span( textureStart, textures, textureSize, size ) ||
              !Span( pathStart, paths, 4, size ) ||
              !Span( bodyStart, bodies, bodySize, size ) ||

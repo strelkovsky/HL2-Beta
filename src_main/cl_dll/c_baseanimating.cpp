@@ -31,12 +31,30 @@
 #include "cdll_client_int.h"
 #include "networkstringtable_clientdll.h"
 #include "imdl44entitypreview.h"
+#include "imdl44modelinfo.h"
+
+extern IMdl44ModelInfo *g_pClientMdl44ModelInfo;
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 
 static ConVar r_mdl44_gman_preview( "r_mdl44_gman_preview", "0", 0, "Experimental G-Man MDL 44 animation preview." );
+static ConVar r_mdl44_rigid_entities( "r_mdl44_rigid_entities", "1", 0, "Draw rigid MDL 44 entity models when the legacy loader substitutes ERROR." );
+
+static const char *Mdl44FallbackOriginalName( C_BaseAnimating *entity )
+{
+	if ( !entity || !entity->GetModel() ) return NULL;
+	if ( g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel( entity->GetModel() ) )
+		return g_pClientMdl44ModelInfo->OriginalName( entity->GetModel() );
+	if ( !networkstringtable ) return NULL;
+	const char *loaded = modelinfo->GetModelName( entity->GetModel() );
+	if ( !loaded || Q_stricmp( loaded, "models/error_legacy.mdl" ) ) return NULL;
+	TABLEID table = networkstringtable->FindStringTable( "modelprecache" );
+	const int index = entity->GetModelIndex();
+	if ( table == INVALID_STRING_TABLE || index < 0 || index >= networkstringtable->GetNumStrings( table ) ) return NULL;
+	return networkstringtable->GetString( table, index );
+}
 
 static ConVar r_drawmrmmodels(  "r_drawmrmmodels", "1" );
 static ConVar r_drawvehicles( "r_drawvehicles", "1" );
@@ -1198,23 +1216,17 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 	if ( !GetModel() )
 		return 0;
 
-	// The network table retains the original model name after ERROR substitution.
-	// This opt-in preview does not yet drive choreography or facial flexes.
-	if ( ( flags & STUDIO_RENDER ) && r_mdl44_gman_preview.GetBool() &&
-		g_pMdl44EntityPreview && networkstringtable )
+	// The network table retains the original name after ERROR substitution.
+	if ( ( flags & STUDIO_RENDER ) && g_pMdl44EntityPreview )
 	{
-		TABLEID table = networkstringtable->FindStringTable( "modelprecache" );
-		int modelIndex = GetModelIndex();
-		if ( table != INVALID_STRING_TABLE && modelIndex >= 0 && modelIndex < networkstringtable->GetNumStrings( table ) )
+		const char *name = Mdl44FallbackOriginalName( this );
+		const bool isGman = name && !Q_stricmp( name, "models/gman_high.mdl" );
+		if ( name && ( isGman ? r_mdl44_gman_preview.GetBool() : r_mdl44_rigid_entities.GetBool() ) )
 		{
-			const char *name = networkstringtable->GetString( table, modelIndex );
-			if ( name && !Q_stricmp( name, "models/gman_high.mdl" ) )
-			{
-				matrix3x4_t transform;
-				AngleMatrix( GetRenderAngles(), GetRenderOrigin(), transform );
-				if ( g_pMdl44EntityPreview->Draw( name, &transform[0][0], m_nSkin, gpGlobals->curtime ) )
-					return 1;
-			}
+			matrix3x4_t transform;
+			AngleMatrix( GetRenderAngles(), GetRenderOrigin(), transform );
+			if ( g_pMdl44EntityPreview->Draw( name, &transform[0][0], m_nSkin, gpGlobals->curtime ) )
+				return 1;
 		}
 	}
 
@@ -1723,6 +1735,11 @@ bool C_BaseAnimating::IsRagdoll() const
 //-----------------------------------------------------------------------------
 void C_BaseAnimating::GetRenderBounds( Vector& theMins, Vector& theMaxs )
 {
+	if ( !IsRagdoll() && r_mdl44_rigid_entities.GetBool() && g_pMdl44EntityPreview )
+	{
+		const char *name = Mdl44FallbackOriginalName( this );
+		if ( name && g_pMdl44EntityPreview->RigidBounds( name, &theMins.x, &theMaxs.x ) ) return;
+	}
 	if ( IsRagdoll() )
 	{
 		m_pRagdoll->GetRagdollBounds( theMins, theMaxs );
