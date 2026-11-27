@@ -462,6 +462,9 @@
     <ClInclude Include=".\mdl44_static.h" />
     <ClInclude Include=".\mdl44_model.h" />
     <ClInclude Include=".\mdl44_mapcache.h" />
+    <ClInclude Include=".\mdl44_skeleton.h" />
+    <ClInclude Include=".\mdl44_animation.h" />
+    <ClInclude Include=".\mdl44_binding.h" />
     <ClInclude Include=".\vtx7_converter.h" />
     <ClInclude Include=".\vvd4_converter.h" />
     <ClInclude Include=".\vvd4_native.h" />

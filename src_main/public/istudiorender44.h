@@ -1,11 +1,11 @@
-// Experimental, separate interface for static MDL 44 geometry.
+// Experimental, separate interface for MDL 44 geometry.
 #ifndef ISTUDIORENDER44_H
 #define ISTUDIORENDER44_H
 
 #include "studio_vertex_view.h"
 #include <cstdint>
 
-#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_004"
+#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_005"
 
 class IMaterialSystem;
 class IMaterial;
@@ -47,5 +47,8 @@ public:
     virtual void DestroyMesh( void *handle ) = 0;
     // transform points to a row-major 3x4 model-to-world matrix.
     virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha ) = 0;
+    // boneMatrices contains boneCount row-major 3x4 model-space skin matrices.
+    virtual bool DrawSkinnedMesh( void *handle, IMaterial *material, const float *transform,
+                                  const float *boneMatrices, unsigned int boneCount, float alpha ) = 0;
 };
 #endif

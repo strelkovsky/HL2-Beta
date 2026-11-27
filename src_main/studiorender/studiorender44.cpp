@@ -1,4 +1,5 @@
 #include "istudiorender44.h"
+#include "studio44_transform.h"
 #include "interface.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterial.h"
@@ -34,7 +35,7 @@ namespace
                 Studio44UploadVertex &v = vertices[i];
                 if ( !source.Vertex( i, v ) || v.boneCount > 3 ) return NULL;
                 for ( unsigned int j = 0; j < v.boneCount; ++j )
-                    if ( v.weightIndex[j] >= 3 || v.boneId[j] < -1 ) return NULL;
+                    if ( v.weightIndex[j] >= v.vertex.boneCount || v.boneId[j] < -1 || v.boneId[j] >= NUM_MODEL_TRANSFORMS ) return NULL;
             }
             for ( unsigned int i = 0; i < indexCount; ++i )
                 if ( !source.Index( i, indices[i] ) || indices[i] >= vertexCount ) return NULL;
@@ -53,7 +54,7 @@ namespace
                 {
                     BoneState state;
                     if ( !source.BoneState( i, j, state.hardware, state.bone ) ||
-                         ( state.bone >= 0 && ( state.bone != 0 || state.hardware < 0 || state.hardware >= NUM_MODEL_TRANSFORMS ) ) )
+                         ( state.bone >= 0 && ( state.bone >= 128 || state.hardware < 0 || state.hardware >= NUM_MODEL_TRANSFORMS ) ) )
                     { delete result; return NULL; }
                     data.states.push_back( state );
                 }
@@ -118,12 +119,32 @@ namespace
 
         virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha )
         {
+            return Draw( handle, material, transform, NULL, 0, alpha );
+        }
+
+        virtual bool DrawSkinnedMesh( void *handle, IMaterial *material, const float *transform,
+                                      const float *boneMatrices, unsigned int boneCount, float alpha )
+        {
+            if ( !boneMatrices || !boneCount || boneCount > 128 ) return false;
+            return Draw( handle, material, transform, boneMatrices, boneCount, alpha );
+        }
+
+    private:
+        bool Draw( void *handle, IMaterial *material, const float *transform,
+                   const float *bones, unsigned int boneCount, float alpha )
+        {
             UploadedMesh *mesh = static_cast<UploadedMesh *>( handle );
             if ( !mesh || !material || !transform ) return false;
-            float matrix[4][4] = {};
-            for ( int i = 0; i < 3; ++i )
-                for ( int j = 0; j < 4; ++j ) matrix[j][i] = transform[i * 4 + j];
-            matrix[3][3] = 1.0f;
+            // Validate before changing the material-system matrix stacks.
+            for ( size_t i=0; i<mesh->strips.size(); ++i )
+                for ( size_t j=0; j<mesh->strips[i].states.size(); ++j )
+                {
+                    const BoneState &state=mesh->strips[i].states[j];
+                    if ( state.bone < 0 ) break;
+                    if ( bones ? static_cast<unsigned int>(state.bone) >= boneCount : state.bone != 0 ) return false;
+                }
+            float matrix[4][4];
+            Studio44Transform::ToMaterial( transform, NULL, matrix );
             bool pushed[NUM_MODEL_TRANSFORMS] = {};
             mesh->materials->MatrixMode( MATERIAL_MODEL );
             mesh->materials->PushMatrix();
@@ -142,7 +163,9 @@ namespace
                     mesh->materials->MatrixMode( MATERIAL_MODEL_MATRIX( state.hardware ) );
                     if ( state.hardware && !pushed[state.hardware] )
                     { mesh->materials->PushMatrix(); pushed[state.hardware] = true; }
-                    mesh->materials->LoadMatrix( &matrix[0][0] );
+                    float boneMatrix[4][4];
+                    Studio44Transform::ToMaterial( transform, bones ? bones + static_cast<size_t>(state.bone) * 12 : NULL, boneMatrix );
+                    mesh->materials->LoadMatrix( &boneMatrix[0][0] );
                 }
                 mesh->mesh->SetPrimitiveType( data.strip.flags & 2 ? MATERIAL_TRIANGLE_STRIP : MATERIAL_TRIANGLES );
                 mesh->mesh->SetColorMesh( NULL );

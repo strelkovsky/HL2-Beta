@@ -72,18 +72,18 @@ namespace Mdl44
             return true;
         }
     private:
-        friend class StaticModel;
+        friend class StudioModel;
         const unsigned char *m_data;
         size_t m_vertexStart, m_vertexCount, m_indexStart, m_indexCount, m_stripStart, m_stripCount;
         unsigned char m_flags;
     };
 
-    class StaticModel
+    class StudioModel
     {
     public:
         bool Load( const unsigned char *mdl, size_t mdlSize,
                    const unsigned char *vvd, size_t vvdSize,
-                   const unsigned char *vtx, size_t vtxSize )
+                   const unsigned char *vtx, size_t vtxSize, bool staticOnly = true )
         {
             if ( !mdl || mdlSize < 12 || !vtx ) return false;
             const uint32_t checksum = Mdl44Static::Read32( mdl, 8 );
@@ -91,7 +91,7 @@ namespace Mdl44
             Mdl44Static::Description description;
             std::vector< std::vector<MaterialReplacement> > replacements;
             if ( !Vvd4Native::Load( vvd, vvdSize, checksum, 0, vertices ) ||
-                 !Mdl44Static::Parse( mdl, mdlSize, static_cast<uint32_t>( vertices.vertices.size() ), description ) ||
+                 !Mdl44Static::Parse( mdl, mdlSize, static_cast<uint32_t>( vertices.vertices.size() ), description, staticOnly ) ||
                  !Mdl44Static::ValidateVtx( vtx, vtxSize, description ) ||
                  !ReadReplacements( vtx, vtxSize, description.materials.size(), replacements ) ) return false;
             std::vector<unsigned char> optimized( vtx, vtx + vtxSize );
@@ -207,5 +207,6 @@ namespace Mdl44
         std::vector<unsigned char> m_vtx;
         std::vector< std::vector<MaterialReplacement> > m_replacements;
     };
+    typedef StudioModel StaticModel;
 }
 #endif

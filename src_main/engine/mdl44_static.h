@@ -51,13 +51,13 @@ namespace Mdl44Static
 
     // A vertex limit from the checksum-matched VVD keeps MDL geometry in range.
     inline bool Parse( const unsigned char *p, size_t size, uint32_t vertexLimit,
-                       Description &output )
+                       Description &output, bool staticOnly = true )
     {
         const size_t headerSize = 240, textureSize = 64, bodySize = 16;
         const size_t modelSize = 148, meshSize = 116, vertexSize = 48;
         if ( !p || size < headerSize || std::memcmp( p, "IDST", 4 ) || Read32( p, 4 ) != 44 ) return false;
         const uint32_t length = Read32( p, 76 );
-        if ( length < headerSize || length > size || !( Read32( p, 152 ) & 16 ) ) return false;
+        if ( length < headerSize || length > size || ( staticOnly && !( Read32( p, 152 ) & 16 ) ) ) return false;
         size = length;
         Description result;
         std::memcpy( result.illumination, p + 92, 12 );
@@ -66,8 +66,8 @@ namespace Mdl44Static
         std::memcpy( result.viewMin, p + 128, 12 );
         std::memcpy( result.viewMax, p + 140, 12 );
         result.checksum = Read32( p, 8 ); result.boneCount = Read32( p, 156 );
-        // Animated models, attachments and multiple bones need a separate converter.
-        if ( result.boneCount != 1 ) return false;
+        // The legacy static path remains restricted to rigid, one-bone models.
+        if ( staticOnly ? result.boneCount != 1 : result.boneCount == 0 || result.boneCount > 128 ) return false;
         const uint32_t textures = Read32( p, 204 ), textureStart = Read32( p, 208 );
         const uint32_t paths = Read32( p, 212 ), pathStart = Read32( p, 216 );
         result.skinRefs = Read32( p, 220 ); result.skinFamilies = Read32( p, 224 );

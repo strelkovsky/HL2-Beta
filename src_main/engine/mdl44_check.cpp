@@ -8,6 +8,9 @@
 #include "istudiorender44.h"
 #include "mdl44_model.h"
 #include "mdl44_mapcache.h"
+#include "mdl44_skeleton.h"
+#include "mdl44_animation.h"
+#include "mdl44_binding.h"
 #include <climits>
 
 // memdbgon must be the last include file.
@@ -26,17 +29,21 @@ static bool ReadModelFile44( const std::string &name, std::vector<unsigned char>
     return ok;
 }
 
-static bool LoadStaticModel44( const std::string &name, Mdl44::StaticModel &model )
+static bool LoadModelGeometry44( const std::string &name, Mdl44::StudioModel &model, bool staticOnly )
 {
     if ( name.size() < 5 || _stricmp( name.c_str() + name.size() - 4, ".mdl" ) ) return false;
     const std::string base = name.substr( 0, name.size() - 4 );
     std::vector<unsigned char> mdl, vvd, vtx;
     if ( !ReadModelFile44( name, mdl ) || mdl.size() < 156 || std::memcmp( mdl.data(), "IDST", 4 ) ||
-         Mdl44Static::Read32( mdl.data(), 4 ) != 44 || !( Mdl44Static::Read32( mdl.data(), 152 ) & 16 ) ) return false;
+         Mdl44Static::Read32( mdl.data(), 4 ) != 44 ||
+         ( staticOnly && !( Mdl44Static::Read32( mdl.data(), 152 ) & 16 ) ) ) return false;
     return ReadModelFile44( base + ".vvd", vvd ) &&
            ReadModelFile44( base + ".dx80.vtx", vtx ) &&
-           model.Load( mdl.data(), mdl.size(), vvd.data(), vvd.size(), vtx.data(), vtx.size() );
+           model.Load( mdl.data(), mdl.size(), vvd.data(), vvd.size(), vtx.data(), vtx.size(), staticOnly );
 }
+
+static bool LoadStaticModel44( const std::string &name, Mdl44::StaticModel &model )
+{ return LoadModelGeometry44( name, model, true ); }
 
 class Studio44MeshSource : public IStudio44MeshSource
 {
@@ -49,6 +56,8 @@ public:
     {
         Mdl44::OptimizedVertex optimized;
         if ( !m_group.Vertex( i, optimized ) || !m_mesh.Read( optimized.meshVertex, out.vertex ) ) return false;
+        for ( unsigned int j=0; j<optimized.boneCount; ++j )
+            if ( optimized.weightIndex[j] >= out.vertex.boneCount ) return false;
         const float *tangent = m_mesh.Tangent( optimized.meshVertex );
         if ( !tangent ) return false;
         std::memcpy( out.tangent, tangent, sizeof( out.tangent ) );
@@ -127,6 +136,20 @@ public:
             if ( entry.model == 0 && entry.lod == 0 && material &&
                  ( pass == MDL44_DRAW_ALL || ( pass == MDL44_DRAW_TRANSLUCENT ) == material->IsTranslucent() ) )
                 drawn = m_renderer->DrawMesh( entry.handle, material, transform, alpha ) || drawn;
+        }
+        return drawn;
+    }
+    bool DrawSkinned( const float *transform, unsigned int skin, const float *bones, unsigned int boneCount ) const
+    {
+        bool drawn = false;
+        for ( size_t i=0; i<m_handles.size(); ++i )
+        {
+            const Entry &entry=m_handles[i]; IMaterial *material=Material(entry,skin);
+            if ( entry.model == 0 && entry.lod == 0 && material )
+            {
+                if ( !m_renderer->DrawSkinnedMesh(entry.handle,material,transform,bones,boneCount,1.0f) ) return false;
+                drawn = true;
+            }
         }
         return drawn;
     }
@@ -292,6 +315,130 @@ bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache, unsigned int skin )
 
 bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache, unsigned int skin )
 { return cache && cache->gpu && cache->gpu->HasTranslucent( skin ); }
+
+CON_COMMAND( mdl44_skeleton_check, "Validate an MDL 44 skeleton." )
+{
+    if ( Cmd_Argc() != 2 ) { Msg( "Usage: mdl44_skeleton_check models/path/model.mdl\n" ); return; }
+    std::vector<unsigned char> data;
+    Mdl44Skeleton::Skeleton skeleton;
+    if ( !ReadModelFile44( Cmd_Argv( 1 ), data ) ||
+         !Mdl44Skeleton::Parse( data.data(), data.size(), skeleton ) )
+    { Warning( "mdl44_skeleton_check: could not parse %s\n", Cmd_Argv( 1 ) ); return; }
+    size_t roots = 0;
+    for ( size_t i = 0; i < skeleton.bones.size(); ++i )
+        if ( skeleton.bones[i].parent == -1 ) ++roots;
+    Msg( "mdl44_skeleton_check: %s: %u bones, %u roots, checksum %08x\n", Cmd_Argv( 1 ),
+         static_cast<unsigned>( skeleton.bones.size() ), static_cast<unsigned>( roots ), skeleton.checksum );
+}
+
+CON_COMMAND( mdl44_binding_check, "Validate MDL 44 skeleton and VVD vertex influences." )
+{
+    if ( Cmd_Argc() != 2 ) { Msg( "Usage: mdl44_binding_check models/path/model.mdl\n" ); return; }
+    const std::string name = Cmd_Argv(1);
+    if ( name.size() < 5 || _stricmp( name.c_str() + name.size() - 4, ".mdl" ) )
+    { Warning( "mdl44_binding_check: expected a .mdl file\n" ); return; }
+    std::vector<unsigned char> mdl, vvd;
+    Mdl44Skeleton::Skeleton skeleton; Vvd4Native::Vertices vertices;
+    std::vector<Mdl44Binding::Vertex> bound;
+    if ( !ReadModelFile44(name, mdl) || !Mdl44Skeleton::Parse(mdl.data(), mdl.size(), skeleton) ||
+         !ReadModelFile44(name.substr(0, name.size()-4) + ".vvd", vvd) ||
+         !Vvd4Native::Load(vvd.data(), vvd.size(), skeleton.checksum, 0, vertices) ||
+         !Mdl44Binding::Bind(skeleton, vertices, bound) )
+    { Warning( "mdl44_binding_check: invalid model, vertex data or bone influences: %s\n", name.c_str() ); return; }
+    Msg( "mdl44_binding_check: %s: %u vertices linked to %u bones\n", name.c_str(),
+         static_cast<unsigned>(bound.size()), static_cast<unsigned>(skeleton.bones.size()) );
+}
+
+CON_COMMAND( mdl44_animation_check, "Inspect MDL 44 animation descriptors and blocks." )
+{
+    if ( Cmd_Argc() != 2 ) { Msg( "Usage: mdl44_animation_check models/path/model.mdl\n" ); return; }
+    const std::string name = Cmd_Argv(1);
+    if ( name.size() < 5 || _stricmp( name.c_str() + name.size() - 4, ".mdl" ) )
+    { Warning( "mdl44_animation_check: expected a .mdl file\n" ); return; }
+    std::vector<unsigned char> mdl, ani; Mdl44Animation::Animations animations;
+    if ( !ReadModelFile44(name, mdl) || !Mdl44Animation::Parse(mdl.data(), mdl.size(), animations) )
+    { Warning( "mdl44_animation_check: invalid animation descriptors: %s\n", name.c_str() ); return; }
+    ReadModelFile44(name.substr(0, name.size()-4) + ".ani", ani);
+    size_t resolved = 0, external = 0, sectioned = 0;
+    for ( size_t i = 0; i < animations.clips.size(); ++i )
+    {
+        const Mdl44Animation::Descriptor &clip = animations.clips[i]; Mdl44Animation::Data data;
+        if ( clip.block > 0 ) ++external;
+        if ( clip.sectionFrames ) ++sectioned;
+        if ( Mdl44Animation::Resolve(mdl.data(), mdl.size(), ani.empty() ? NULL : ani.data(), ani.size(), animations, clip, data) ) ++resolved;
+    }
+    Msg( "mdl44_animation_check: %s: %u local clips, %u external-block clips, %u sectioned, %u data blocks resolved\n",
+         name.c_str(), static_cast<unsigned>(animations.clips.size()), static_cast<unsigned>(external),
+         static_cast<unsigned>(sectioned), static_cast<unsigned>(resolved) );
+}
+
+CON_COMMAND( mdl44_pose_check, "Sample a non-delta MDL 44 animation and deform vertices on the CPU." )
+{
+    if ( Cmd_Argc() != 4 ) { Msg( "Usage: mdl44_pose_check models/path/model.mdl <clip index> <frame>\n" ); return; }
+    const std::string name=Cmd_Argv(1);
+    if (name.size()<5 || _stricmp(name.c_str()+name.size()-4,".mdl"))
+    { Warning("mdl44_pose_check: expected a .mdl file\n"); return; }
+    const int clipIndex=atoi(Cmd_Argv(2)), frame=atoi(Cmd_Argv(3));
+    std::vector<unsigned char> mdl,vvd,ani; Mdl44Skeleton::Skeleton skeleton; Vvd4Native::Vertices vertices;
+    Mdl44Animation::Animations anims; std::vector<Mdl44Binding::Vertex> binding;
+    if (!ReadModelFile44(name,mdl) || !Mdl44Skeleton::Parse(mdl.data(),mdl.size(),skeleton) ||
+        !Mdl44Animation::Parse(mdl.data(),mdl.size(),anims) ||
+        !ReadModelFile44(name.substr(0,name.size()-4)+".vvd",vvd) ||
+        !Vvd4Native::Load(vvd.data(),vvd.size(),skeleton.checksum,0,vertices) ||
+        !Mdl44Binding::Bind(skeleton,vertices,binding) || clipIndex<0 || static_cast<size_t>(clipIndex)>=anims.clips.size() || frame<0)
+    { Warning("mdl44_pose_check: invalid model, vertex data or clip index: %s\n",name.c_str()); return; }
+    ReadModelFile44(name.substr(0,name.size()-4)+".ani",ani);
+    const Mdl44Animation::Descriptor &clip=anims.clips[clipIndex]; Mdl44Animation::Data data;
+    std::vector<Mdl44Animation::LocalPose> pose; std::vector<Mdl44Binding::Matrix> matrices;
+    if (!Mdl44Animation::Resolve(mdl.data(),mdl.size(),ani.empty()?NULL:ani.data(),ani.size(),anims,clip,data) ||
+        !Mdl44Animation::SamplePose(data,clip,skeleton,frame,pose) || !Mdl44Binding::BuildSkinMatrices(skeleton,pose,matrices))
+    { Warning("mdl44_pose_check: cannot sample clip '%s' frame %d (delta, sectioned or invalid data)\n",clip.name.c_str(),frame); return; }
+    float maxDisplacement=0;
+    for (size_t i=0;i<binding.size();++i)
+    {
+        StudioVertexView::Vertex source; float result[3];
+        if (!StudioVertexView::ReadVvd4(vertices.vertices[i].data,48,source) ||
+            !Mdl44Binding::DeformPosition(source,binding[i],matrices,result))
+        { Warning("mdl44_pose_check: could not deform vertex %u\n",static_cast<unsigned>(i)); return; }
+        const float dx=result[0]-source.position[0],dy=result[1]-source.position[1],dz=result[2]-source.position[2];
+        const float distance=std::sqrt(dx*dx+dy*dy+dz*dz);
+        if (distance>maxDisplacement) maxDisplacement=distance;
+    }
+    Msg("mdl44_pose_check: %s clip '%s' frame %d/%d: %u bones, %u vertices, max bind-pose displacement %.3f\n",
+        name.c_str(),clip.name.c_str(),frame,clip.frames,static_cast<unsigned>(pose.size()),
+        static_cast<unsigned>(binding.size()),maxDisplacement);
+}
+
+// GPU diagnostic: invoke during an active game frame. It draws once using the
+// current camera; this is not entity integration or an animation player.
+CON_COMMAND( mdl44_skin_draw_test, "Upload and draw one MDL 44 skinned pose for validation." )
+{
+    if ( Cmd_Argc() != 4 ) { Msg( "Usage: mdl44_skin_draw_test models/path/model.mdl <clip index> <frame>\n" ); return; }
+    const std::string name=Cmd_Argv(1); const int clipIndex=atoi(Cmd_Argv(2)), frame=atoi(Cmd_Argv(3));
+    if (name.size()<5 || _stricmp(name.c_str()+name.size()-4,".mdl") || clipIndex<0 || frame<0)
+    { Warning("mdl44_skin_draw_test: invalid arguments\n"); return; }
+    std::vector<unsigned char> mdl,ani; Mdl44Skeleton::Skeleton skeleton; Mdl44Animation::Animations anims; Mdl44::StudioModel model;
+    if (!ReadModelFile44(name,mdl) || !Mdl44Skeleton::Parse(mdl.data(),mdl.size(),skeleton) ||
+        !Mdl44Animation::Parse(mdl.data(),mdl.size(),anims) || static_cast<size_t>(clipIndex)>=anims.clips.size() ||
+        !LoadModelGeometry44(name,model,false))
+    { Warning("mdl44_skin_draw_test: invalid model or clip index: %s\n",name.c_str()); return; }
+    ReadModelFile44(name.substr(0,name.size()-4)+".ani",ani);
+    const Mdl44Animation::Descriptor &clip=anims.clips[clipIndex]; Mdl44Animation::Data data;
+    std::vector<Mdl44Animation::LocalPose> pose; std::vector<Mdl44Binding::Matrix> matrices;
+    if (!Mdl44Animation::Resolve(mdl.data(),mdl.size(),ani.empty()?NULL:ani.data(),ani.size(),anims,clip,data) ||
+        !Mdl44Animation::SamplePose(data,clip,skeleton,frame,pose) || !Mdl44Binding::BuildSkinMatrices(skeleton,pose,matrices))
+    { Warning("mdl44_skin_draw_test: cannot sample clip '%s' frame %d\n",clip.name.c_str(),frame); return; }
+    CreateInterfaceFn factory=Sys_GetFactory("studiorender.dll");
+    IStudioRender44 *renderer=factory ? static_cast<IStudioRender44 *>(factory(STUDIO_RENDER_44_INTERFACE_VERSION,NULL)) : NULL;
+    if (!renderer || !materialSystemInterface) { Warning("mdl44_skin_draw_test: StudioRender 44 unavailable\n"); return; }
+    Studio44MeshOwner gpu(renderer); size_t skipped=0;
+    if (!UploadStaticModel44(model,gpu,skipped)) { Warning("mdl44_skin_draw_test: upload failed\n"); return; }
+    const float transform[12]={1,0,0,0, 0,1,0,0, 0,0,1,0};
+    if (!gpu.DrawSkinned(transform,0,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size())))
+    { Warning("mdl44_skin_draw_test: GPU draw failed\n"); return; }
+    Msg("mdl44_skin_draw_test: %s clip '%s' frame %d: GPU draw completed, %u hardware groups uploaded; %u software groups skipped\n",
+        name.c_str(),clip.name.c_str(),frame,static_cast<unsigned>(gpu.Count()),static_cast<unsigned>(skipped));
+}
 
 CON_COMMAND( mdl44_check, "Validate and inspect a static MDL 44 model and its VVD/VTX files." )
 {

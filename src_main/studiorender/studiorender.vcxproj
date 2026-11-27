@@ -109,6 +109,7 @@
     <ClInclude Include="..\Public\s3_intrf.h" />
     <ClInclude Include="..\Public\studio.h" />
     <ClInclude Include="..\Public\studio_vertex_view.h" />
+    <ClInclude Include=".\studio44_transform.h" />
     <ClInclude Include="..\Public\studio_material_view.h" />
     <ClInclude Include=".\StudioStats.h" />
     <ClInclude Include="..\Public\utllinkedlist.h" />
