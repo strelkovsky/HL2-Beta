@@ -279,15 +279,11 @@ void CShaderSystem::LoadAllShaderDLLs( )
 		LoadShaderDLL( buf );
 	}
 
-	const char *pShaderName = NULL;
-	pShaderName = CommandLine()->ParmValue( "-shader" );
-	if( !pShaderName )
+	const char *pRequestedShader = CommandLine()->ParmValue( "-shader" );
+	const char *pShaderName = pRequestedShader ? pRequestedShader : HardwareConfig()->GetHWSpecificShaderDLLName();
+	if ( pShaderName && !LoadShaderDLL( pShaderName ) && pRequestedShader )
 	{
-		pShaderName = HardwareConfig()->GetHWSpecificShaderDLLName();
-	}
-	if ( pShaderName )
-	{
-		LoadShaderDLL( pShaderName );
+		Warning( "Unable to load shader DLL '%s' specified by -shader; previously loaded shaders remain in use.\n", pRequestedShader );
 	}
 
 #ifdef _DEBUG
