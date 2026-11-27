@@ -105,6 +105,8 @@ public:
 	virtual int DrawModel( int flags );
 	virtual int InternalDrawModel( int flags );
 	virtual int GetStudio44Layers( Studio44Layer *layers, int capacity ) const { return 0; }
+	virtual int GetStudio44FlexWeights( float *weights, int capacity ) { return 0; }
+	virtual bool GetStudio44ViewTarget( float *target ) const { return false; }
 	
 	//
 	virtual void	ControlMouth();

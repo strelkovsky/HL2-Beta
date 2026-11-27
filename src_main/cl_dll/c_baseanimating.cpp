@@ -1227,7 +1227,11 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 			AngleMatrix( GetRenderAngles(), GetRenderOrigin(), transform );
 			Studio44Layer layers[8];
 			const int layerCount = GetStudio44Layers( layers, 8 );
-			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, layers, layerCount ) )
+			float flexWeights[64];
+			const int flexCount = isGman ? GetStudio44FlexWeights( flexWeights, 64 ) : 0;
+			float viewTarget[3];
+			const bool hasTarget = isGman && GetStudio44ViewTarget( viewTarget );
+			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, layers, layerCount, flexWeights, flexCount, hasTarget ? viewTarget : NULL ) )
 				return 1;
 		}
 	}

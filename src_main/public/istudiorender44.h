@@ -5,7 +5,7 @@
 #include "studio_vertex_view.h"
 #include <cstdint>
 
-#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_006"
+#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_007"
 
 class IMaterialSystem;
 class IMaterial;
@@ -14,9 +14,12 @@ struct Studio44UploadVertex
 {
     StudioVertexView::Vertex vertex;
     float tangent[4];
+    uint32_t meshVertex;
     unsigned char weightIndex[3], boneCount;
     int8_t boneId[3];
 };
+
+struct Studio44VertexDelta { float position[3], normal[3]; };
 
 struct Studio44Strip
 {
@@ -51,6 +54,7 @@ public:
     virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha ) = 0;
     // boneMatrices contains boneCount row-major 3x4 model-space skin matrices.
     virtual bool DrawSkinnedMesh( void *handle, IMaterial *material, const float *transform,
-                                  const float *boneMatrices, unsigned int boneCount, float alpha ) = 0;
+                                  const float *boneMatrices, unsigned int boneCount, float alpha,
+                                  const Studio44VertexDelta *deltas, unsigned int deltaCount ) = 0;
 };
 #endif

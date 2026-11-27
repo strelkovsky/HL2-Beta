@@ -46,6 +46,8 @@ public:
 
 	// model specific
 	virtual	void	SetupWeights( );
+	virtual int GetStudio44FlexWeights( float *weights, int capacity );
+	virtual bool GetStudio44ViewTarget( float *target ) const;
 
 	virtual void	RunFlexRules( float *dest );
 

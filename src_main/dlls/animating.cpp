@@ -1296,6 +1296,8 @@ void CBaseAnimating::ReportMissingActivity( int iActivity )
 
 int CBaseAnimating::GetNumFlexControllers( void )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+		return min(64,g_pServerMdl44ModelInfo->FlexControllerCount(GetModel()));
 	studiohdr_t *pstudiohdr = GetModelPtr( );
 	if (! pstudiohdr)
 		return 0;
@@ -1317,6 +1319,7 @@ const char *CBaseAnimating::GetFlexDescFacs( int iFlexDesc )
 
 const char *CBaseAnimating::GetFlexControllerName( int iFlexController )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) { const char *name,*type; float lo,hi; return g_pServerMdl44ModelInfo->FlexController(GetModel(),iFlexController,name,type,lo,hi) ? name : ""; }
 	studiohdr_t *pstudiohdr = GetModelPtr( );
 	if (! pstudiohdr)
 		return 0;
@@ -1328,6 +1331,7 @@ const char *CBaseAnimating::GetFlexControllerName( int iFlexController )
 
 const char *CBaseAnimating::GetFlexControllerType( int iFlexController )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) { const char *name,*type; float lo,hi; return g_pServerMdl44ModelInfo->FlexController(GetModel(),iFlexController,name,type,lo,hi) ? type : ""; }
 	studiohdr_t *pstudiohdr = GetModelPtr( );
 	if (! pstudiohdr)
 		return 0;

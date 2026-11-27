@@ -145,26 +145,37 @@ namespace
 
         virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha )
         {
-            return Draw( handle, material, transform, NULL, 0, alpha );
+            return Draw( handle, material, transform, NULL, 0, alpha, NULL, 0 );
         }
 
         virtual bool DrawSkinnedMesh( void *handle, IMaterial *material, const float *transform,
-                                      const float *boneMatrices, unsigned int boneCount, float alpha )
+                                      const float *boneMatrices, unsigned int boneCount, float alpha,
+                                      const Studio44VertexDelta *deltas, unsigned int deltaCount )
         {
             if ( !boneMatrices || !boneCount || boneCount > 128 ) return false;
-            return Draw( handle, material, transform, boneMatrices, boneCount, alpha );
+            return Draw( handle, material, transform, boneMatrices, boneCount, alpha, deltas, deltaCount );
         }
 
     private:
         bool DrawSoftware( UploadedMesh *mesh, IMaterial *material, const float *transform,
-                           const float *bones, unsigned int boneCount, float alpha )
+                           const float *bones, unsigned int boneCount, float alpha, const Studio44VertexDelta *deltas, unsigned int deltaCount )
         {
             if ( !bones || !boneCount ) return false;
             std::vector<Studio44UploadVertex> transformed=mesh->sourceVertices;
             for ( size_t i=0; i<transformed.size(); ++i )
             {
                 Studio44UploadVertex &v=transformed[i]; const Studio44UploadVertex &src=mesh->sourceVertices[i];
-                if (!Studio44Transform::SkinVertex(src.vertex,src.tangent,bones,boneCount,
+                StudioVertexView::Vertex morphed=src.vertex;
+                float tangent[4]; std::memcpy(tangent,src.tangent,sizeof(tangent));
+                if (deltas && src.meshVertex<deltaCount)
+                {
+                    for(int j=0;j<3;++j) { morphed.position[j]+=deltas[src.meshVertex].position[j]; morphed.normal[j]+=deltas[src.meshVertex].normal[j]; tangent[j]+=deltas[src.meshVertex].normal[j]; }
+                    float normalLength=0, tangentLength=0;
+                    for(int j=0;j<3;++j) { normalLength+=morphed.normal[j]*morphed.normal[j]; tangentLength+=tangent[j]*tangent[j]; }
+                    if(normalLength>0) { normalLength=std::sqrt(normalLength); for(int j=0;j<3;++j) morphed.normal[j]/=normalLength; }
+                    if(tangentLength>0) { tangentLength=std::sqrt(tangentLength); for(int j=0;j<3;++j) tangent[j]/=tangentLength; }
+                }
+                if (!Studio44Transform::SkinVertex(morphed,tangent,bones,boneCount,
                     v.vertex.position,v.vertex.normal,v.tangent)) return false;
             }
             float matrix[4][4]; Studio44Transform::ToMaterial(transform,NULL,matrix);
@@ -194,11 +205,12 @@ namespace
         }
 
         bool Draw( void *handle, IMaterial *material, const float *transform,
-                   const float *bones, unsigned int boneCount, float alpha )
+                   const float *bones, unsigned int boneCount, float alpha, const Studio44VertexDelta *deltas, unsigned int deltaCount )
         {
             UploadedMesh *mesh = static_cast<UploadedMesh *>( handle );
             if ( !mesh || !material || !transform ) return false;
-            if ( mesh->software ) return DrawSoftware( mesh, material, transform, bones, boneCount, alpha );
+            if ( mesh->software ) return DrawSoftware( mesh, material, transform, bones, boneCount, alpha, deltas, deltaCount );
+            if ( deltas ) return false;
             // Validate before changing the material-system matrix stacks.
             for ( size_t i=0; i<mesh->strips.size(); ++i )
                 for ( size_t j=0; j<mesh->strips[i].states.size(); ++j )

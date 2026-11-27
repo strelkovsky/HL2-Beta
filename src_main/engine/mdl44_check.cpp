@@ -6,6 +6,7 @@
 #include "filesystem_engine.h"
 #include "gl_matsysiface.h"
 #include "istudiorender44.h"
+#include "materialsystem/imaterialvar.h"
 #include "imdl44entitypreview.h"
 #include "imdl44modelinfo.h"
 #include "mdl44_modelcache.h"
@@ -18,6 +19,7 @@
 #include "mdl44_virtual.h"
 #include "mdl44_binding.h"
 #include "mdl44_pose.h"
+#include "mdl44_flex.h"
 #include "lightcache.h"
 #include "istudiorender.h"
 #include "bspfile.h"
@@ -79,6 +81,8 @@ struct Mdl44CachedModel
     std::string originalName;
     Studio44::studiohdr_t header;
     Mdl44Virtual::Model virtualModel;
+    Mdl44Flex::Data flex;
+    bool flexValid;
     std::vector<Mdl44GroupSource> sources;
 };
 static std::vector<Mdl44CachedModel *> s_Mdl44Models;
@@ -100,10 +104,11 @@ void Mdl44ModelCacheAttach(model_t *model, const char *name)
 {
     Mdl44ModelCacheDetach(model);
     if(!r_mdl44_modelcache.GetBool() || !model || !name || !*name) return;
-    Mdl44CachedModel *cached=new Mdl44CachedModel; cached->identity=model; cached->originalName=name;
+    Mdl44CachedModel *cached=new Mdl44CachedModel; cached->identity=model; cached->originalName=name; cached->flexValid=false;
     std::vector<std::string> stack; std::vector<unsigned char> root;
     if(!ReadModelFile44(name,root) || !Studio44::ReadHeader(root.data(),root.size(),sizeof(cached->header),cached->header) ||
        !LoadVirtualGroup44(name,cached->virtualModel,stack)) { delete cached; return; }
+    cached->flexValid=Mdl44Flex::Parse(root.data(),root.size(),cached->flex);
     cached->sources.resize(cached->virtualModel.Groups().size());
     s_Mdl44Models.push_back(cached);
     Msg("MDL 44 model cache: %s: %u groups, %u sequences\n",cached->originalName.c_str(),
@@ -138,6 +143,13 @@ public:
         Mdl44CachedModel *c=FindCached44(model); Mdl44Virtual::SequenceInfo info;
         if(!c || sequence<0 || !c->virtualModel.GetSequenceInfo(static_cast<size_t>(sequence),info) || !info.hasDuration) return false;
         flags=info.flags; duration=info.duration; return true;
+    }
+    virtual int FlexControllerCount(const model_t *model) const {
+        Mdl44CachedModel *c=FindCached44(model); return c && c->flexValid ? static_cast<int>(c->flex.controllers.size()) : 0;
+    }
+    virtual bool FlexController(const model_t *model,int index,const char *&name,const char *&type,float &minimum,float &maximum) const {
+        Mdl44CachedModel *c=FindCached44(model); if(!c || !c->flexValid || index<0 || static_cast<size_t>(index)>=c->flex.controllers.size()) return false;
+        const Mdl44Flex::Controller &f=c->flex.controllers[index];name=f.name.c_str();type=f.type.c_str();minimum=f.min;maximum=f.max;return true;
     }
     virtual int FindAttachment(const model_t *model, const char *name) const;
     virtual bool AttachmentTransform(const model_t *model, int attachment, float time, const Studio44Layer *layers, unsigned int layerCount, float *matrix3x4) const;
@@ -226,6 +238,7 @@ public:
         std::memcpy( out.weightIndex, optimized.weightIndex, sizeof( out.weightIndex ) );
         std::memcpy( out.boneId, optimized.boneId, sizeof( out.boneId ) );
         out.boneCount = optimized.boneCount;
+        out.meshVertex = optimized.meshVertex;
         return true;
     }
     virtual bool Index( unsigned int i, uint16_t &out ) const { return m_group.Index( i, out ); }
@@ -246,6 +259,40 @@ private:
     Mdl44::GroupView m_group;
 };
 
+// Eye projection follows R_StudioEyeballPosition in SE2007. Matrices and
+// view targets are world-space, as expected by the Eyes shader.
+static ConVar r_mdl44_eye_debug("r_mdl44_eye_debug", "0", 0, "Log the MDL 44 eye target and iris projection.");
+struct Studio44EyeState { Vector origin, up; float u[4], v[4]; bool valid; };
+static bool Studio44EyeProjection(const Mdl44Flex::Eye &eye, const Mdl44Binding::Matrix &bone,
+                                  const float *target, Studio44EyeState &out)
+{
+    Vector origin, up, forward, right;
+    for(int r=0;r<3;++r)
+    {
+        origin[r]=bone.m[r][3]; up[r]=0; forward[r]=0;
+        for(int c=0;c<3;++c) { origin[r]+=bone.m[r][c]*eye.origin[c]; up[r]+=bone.m[r][c]*eye.up[c]; forward[r]-=bone.m[r][c]*eye.forward[c]; }
+    }
+    if(target && std::isfinite(target[0]) && std::isfinite(target[1]) && std::isfinite(target[2]) &&
+       (target[0]!=0 || target[1]!=0 || target[2]!=0)) forward=Vector(target[0],target[1],target[2])-origin;
+    if(VectorNormalize(forward)<0.001f || VectorNormalize(up)<0.001f) return false;
+    CrossProduct(forward,up,right); if(VectorNormalize(right)<0.001f) return false;
+    forward+=right*(eye.zoffset*2); if(VectorNormalize(forward)<0.001f) return false;
+    CrossProduct(forward,up,right); if(VectorNormalize(right)<0.001f) return false;
+    CrossProduct(right,forward,up); if(VectorNormalize(up)<0.001f) return false;
+    out.origin=origin; out.up=Vector(eye.up[0],eye.up[1],eye.up[2]);
+    for(int j=0;j<3;++j) { out.u[j]=-eye.irisScale*right[j]; out.v[j]=-eye.irisScale*up[j]; }
+    out.u[3]=0.5f-DotProduct(origin,Vector(out.u[0],out.u[1],out.u[2]));
+    out.v[3]=0.5f-DotProduct(origin,Vector(out.v[0],out.v[1],out.v[2]));
+    out.valid=true; return true;
+}
+static void Studio44SetEyeMaterial(IMaterial *material, const Studio44EyeState &eye)
+{
+    bool found; IMaterialVar *var=material->FindVar("$eyeorigin",&found,false); if(found) var->SetVecValue(eye.origin.Base(),3);
+    var=material->FindVar("$eyeup",&found,false); if(found) var->SetVecValue(eye.up.Base(),3);
+    var=material->FindVar("$irisu",&found,false); if(found) var->SetVecValue(eye.u,4);
+    var=material->FindVar("$irisv",&found,false); if(found) var->SetVecValue(eye.v,4);
+}
+
 // The owner must be destroyed before StudioRender and the material system.
 class Studio44MeshOwner
 {
@@ -263,13 +310,13 @@ public:
         m_handles.clear();
     }
     bool Add( IMaterialSystem *materials, const std::vector<IMaterial *> &variants,
-              const IStudio44MeshSource &source, size_t model, size_t lod, bool software )
+              const IStudio44MeshSource &source, size_t body, size_t model, size_t mesh, size_t lod, bool software )
     {
         if ( variants.empty() || !variants[0] ) return false;
         void *handle = software ? m_renderer->CreateSoftwareMesh( materials, variants[0], source ) :
                                   m_renderer->CreateMesh( materials, variants[0], source );
         if ( !handle ) return false;
-        Entry entry; entry.handle = handle; entry.model = model; entry.lod = lod; entry.materials = variants; entry.software = software;
+        Entry entry; entry.handle = handle; entry.body = body; entry.model = model; entry.mesh = mesh; entry.lod = lod; entry.materials = variants; entry.software = software;
         for ( size_t i = 0; i < variants.size(); ++i )
             if ( variants[i] ) variants[i]->IncrementReferenceCount();
         m_handles.push_back( entry );
@@ -304,7 +351,9 @@ public:
         }
         return drawn;
     }
-    bool DrawSkinned( const float *transform, unsigned int skin, const float *bones, unsigned int boneCount ) const
+    bool DrawSkinned( const float *transform, unsigned int skin, const float *bones, unsigned int boneCount,
+                      const Mdl44Flex::Data *flexData = NULL, const std::vector<float> *flexWeights = NULL,
+                      const std::vector<Studio44EyeState> *eyes = NULL ) const
     {
         bool drawn = false;
         for ( size_t i=0; i<m_handles.size(); ++i )
@@ -312,7 +361,35 @@ public:
             const Entry &entry=m_handles[i]; IMaterial *material=Material(entry,skin);
             if ( entry.model == 0 && entry.lod == 0 && material )
             {
-                if ( !m_renderer->DrawSkinnedMesh(entry.handle,material,transform,bones,boneCount,1.0f) ) return false;
+                if (flexData && eyes) for(size_t j=0;j<flexData->eyeMeshes.size();++j)
+                {
+                    const Mdl44Flex::EyeMesh &binding=flexData->eyeMeshes[j];
+                    if(binding.body==entry.body && binding.model==entry.model && binding.mesh==entry.mesh && binding.eye<eyes->size() && (*eyes)[binding.eye].valid)
+                    { Studio44SetEyeMaterial(material,(*eyes)[binding.eye]); break; }
+                }
+                std::vector<Studio44VertexDelta> deltas;
+                if ( flexData && flexWeights )
+                    for ( size_t meshIndex=0; meshIndex<flexData->meshes.size(); ++meshIndex )
+                    {
+                        const Mdl44Flex::Mesh &mesh=flexData->meshes[meshIndex];
+                        if (mesh.body!=entry.body || mesh.model!=entry.model || mesh.mesh!=entry.mesh) continue;
+                        deltas.resize(mesh.vertexCount);
+                        for(size_t f=0; f<mesh.flexes.size(); ++f)
+                        {
+                            const Mdl44Flex::Flex &flex=mesh.flexes[f];
+                            const float left=Mdl44Flex::Ramp(flex,(*flexWeights)[flex.desc]);
+                            const float right=flex.pair ? Mdl44Flex::Ramp(flex,(*flexWeights)[flex.pair]) : left;
+                            for(size_t j=0;j<flex.deltas.size();++j)
+                            {
+                                const Mdl44Flex::Delta &d=flex.deltas[j];
+                                const float side=d.side/255.0f, weight=left*(1-side)+right*side;
+                                for(int axis=0;axis<3;++axis) { deltas[d.index].position[axis]+=weight*d.position[axis]; deltas[d.index].normal[axis]+=weight*d.normal[axis]; }
+                            }
+                        }
+                        break;
+                    }
+                if ( !m_renderer->DrawSkinnedMesh(entry.handle,material,transform,bones,boneCount,1.0f,
+                      deltas.empty() ? NULL : &deltas[0],static_cast<unsigned int>(deltas.size())) ) return false;
                 drawn = true;
             }
         }
@@ -322,7 +399,7 @@ private:
     Studio44MeshOwner( const Studio44MeshOwner & );
     Studio44MeshOwner &operator=( const Studio44MeshOwner & );
     IStudioRender44 *m_renderer;
-    struct Entry { void *handle; size_t model, lod; std::vector<IMaterial *> materials; bool software; };
+    struct Entry { void *handle; size_t body, model, mesh, lod; std::vector<IMaterial *> materials; bool software; };
     static IMaterial *Material( const Entry &entry, unsigned int skin )
     {
         if ( entry.materials.empty() ) return NULL;
@@ -363,7 +440,7 @@ static IMaterial *FindStudio44Material( const Mdl44::StaticModel &model, size_t 
     return NULL;
 }
 
-static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOwner &handles, size_t &skipped, bool allowSoftware = false )
+static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOwner &handles, size_t &skipped, bool allowSoftware = false, const Mdl44Flex::Data *flexData = NULL )
 {
     const Mdl44Static::Description &description = model.Description();
     for ( size_t b = 0; b < description.bodyParts.size(); ++b )
@@ -389,10 +466,12 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
                         Mdl44::GroupView group;
                         if ( !model.Group( b, m, lod, k, g, group ) ) break;
                         if ( !group.VertexCount() || !group.IndexCount() ) continue;
-                        const bool software = !( group.Flags() & 2 );
+                        bool flexMesh=false;
+                        if (flexData) for(size_t i=0;i<flexData->meshes.size();++i) if(flexData->meshes[i].body==b && flexData->meshes[i].model==m && flexData->meshes[i].mesh==k) { flexMesh=true; break; }
+                        const bool software = !( group.Flags() & 2 ) || flexMesh;
                         if ( software && !allowSoftware ) { ++skipped; continue; }
                         Studio44MeshSource source( mesh, group );
-                        if ( !handles.Add( materialSystemInterface, variants, source, m, lod, software ) ) return false;
+                        if ( !handles.Add( materialSystemInterface, variants, source, b, m, k, lod, software ) ) return false;
                     }
                 }
             }
@@ -520,7 +599,7 @@ public:
         m_attempted=false; m_valid=false; m_logged=false; m_gestureAttempted=false; m_gestureValid=false;
     }
     virtual bool Draw(const model_t *identity, const char *name, const float *transform, unsigned int skin, float time,
-                      const Studio44Layer *layers, unsigned int layerCount)
+                      const Studio44Layer *layers, unsigned int layerCount, const float *flexWeights, unsigned int flexCount, const float *viewTarget)
     {
         if (!name || !transform) return false;
         if (_stricmp(name,"models/gman_high.mdl")) return Mdl44RigidEntityDraw(name,transform,skin);
@@ -542,7 +621,7 @@ public:
         const Mdl44Animation::Descriptor &clip=m_anims.clips[sequence->animations[0]];
         Mdl44Animation::Data data;
         std::vector<Mdl44Animation::LocalPose> pose;
-        std::vector<Mdl44Binding::Matrix> matrices;
+        std::vector<Mdl44Binding::Matrix> matrices, animatedBones;
         const int frame=std::isfinite(time) && time>0 ? static_cast<int>(std::fmod(double(time)*clip.fps,clip.frames)) : 0;
         if (!Mdl44Animation::Resolve(m_mdl.data(),m_mdl.size(),m_ani.empty()?NULL:m_ani.data(),m_ani.size(),m_anims,clip,data) ||
             !Mdl44Animation::SamplePose(data,clip,m_skeleton,frame,pose)) return false;
@@ -603,14 +682,14 @@ public:
                 }
             }
         }
-        if (!Mdl44Binding::BuildSkinMatrices(m_skeleton,pose,matrices) || matrices.empty()) return false;
+        if (!Mdl44Binding::BuildSkinMatrices(m_skeleton,pose,matrices,&animatedBones) || matrices.empty()) return false;
         if (!m_gpu)
         {
             CreateInterfaceFn factory=Sys_GetFactory("studiorender.dll");
             IStudioRender44 *renderer=factory ? static_cast<IStudioRender44 *>(factory(STUDIO_RENDER_44_INTERFACE_VERSION,NULL)) : NULL;
             if (!renderer || !materialSystemInterface) return false;
             Studio44MeshOwner *gpu=new Studio44MeshOwner(renderer); size_t skipped=0;
-            if (!UploadStaticModel44(m_model,*gpu,skipped,true) || skipped) { delete gpu; return false; }
+            if (!UploadStaticModel44(m_model,*gpu,skipped,true,cached && cached->flexValid ? &cached->flex : NULL) || skipped) { delete gpu; return false; }
             m_gpu=gpu;
         }
         // The native preview bypasses CModelRender::StudioSetupLighting, so
@@ -645,7 +724,71 @@ public:
                 g_pStudioRender->SetLocalLights(count,lights);
             }
         }
-        if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()))) return false;
+        std::vector<float> flexResult;
+        const bool haveFlex=cached && cached->flexValid && flexWeights &&
+            Mdl44Flex::Evaluate(cached->flex,flexWeights,flexCount,flexResult);
+        std::vector<Studio44EyeState> eyeStates;
+        if(cached && cached->flexValid)
+        {
+            eyeStates.resize(cached->flex.eyes.size());
+            Mdl44Binding::Matrix modelToWorld; std::memcpy(modelToWorld.m,transform,sizeof(modelToWorld.m));
+            // SE2007 applies the animated eye controls and clamps the target
+            // in the space of the model's eyes attachment before projecting.
+            Vector adjustedTarget;
+            const float *eyeTarget=viewTarget;
+            if(viewTarget && (viewTarget[0]!=0 || viewTarget[1]!=0 || viewTarget[2]!=0))
+            {
+                const int attachment=s_Mdl44ModelInfo.FindAttachment(identity,"eyes"); size_t at; Mdl44GroupSource *source;
+                if(Mdl44AttachmentRecord(cached,attachment,at,source))
+                {
+                    const int bone=Mdl44Skeleton::ReadI32(source->mdl.data(),at+8);
+                    if(bone>=0 && static_cast<size_t>(bone)<animatedBones.size())
+                    {
+                        Mdl44Binding::Matrix attachmentLocal; std::memcpy(attachmentLocal.m,source->mdl.data()+at+12,sizeof(attachmentLocal.m));
+                        const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(Mdl44Binding::Multiply(modelToWorld,animatedBones[bone]),attachmentLocal);
+                        matrix3x4_t attachmentWorld; std::memcpy(&attachmentWorld[0][0],world.m,sizeof(world.m));
+                        Vector local; VectorITransform(Vector(viewTarget[0],viewTarget[1],viewTarget[2]),attachmentWorld,local);
+                        if(local.x<6) local.x=6;
+                        const float distance=VectorNormalize(local);
+                        QAngle eyeAngles(0,0,0);
+                        if(flexWeights) for(size_t i=0;i<cached->flex.controllers.size() && i<flexCount;++i)
+                        {
+                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_updown")) eyeAngles.x=flexWeights[i];
+                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_rightleft")) eyeAngles.y=flexWeights[i];
+                        }
+                        Vector deflection; AngleVectors(eyeAngles,&deflection); deflection.x=0;
+                        local+=deflection*(local.x*local.x); VectorNormalize(local);
+                        const float maxDeflection=0.866f;
+                        if(local.x<maxDeflection)
+                        {
+                            const float side=local.y*local.y+local.z*local.z;
+                            if(side>0) { const float scale=std::sqrt((1-maxDeflection*maxDeflection)/side); local.x=maxDeflection; local.y*=scale; local.z*=scale; }
+                            else local.Init(1,0,0);
+                        }
+                        local*=distance; VectorTransform(local,attachmentWorld,adjustedTarget); eyeTarget=adjustedTarget.Base();
+                    }
+                }
+            }
+            for(size_t i=0;i<eyeStates.size();++i)
+            {
+                const Mdl44Flex::Eye &eye=cached->flex.eyes[i];
+                eyeStates[i].valid=false;
+                if(eye.bone>=0 && static_cast<size_t>(eye.bone)<animatedBones.size())
+                    Studio44EyeProjection(eye,Mdl44Binding::Multiply(modelToWorld,animatedBones[eye.bone]),eyeTarget,eyeStates[i]);
+            }
+        }
+        if (r_mdl44_eye_debug.GetBool() && !eyeStates.empty())
+        {
+            static float nextEyeLog=0;
+            if(time>=nextEyeLog)
+            {
+                Msg("MDL 44 eyes: %u eyes, first valid %d, target %.1f %.1f %.1f\n",static_cast<unsigned>(eyeStates.size()),eyeStates[0].valid ? 1 : 0,
+                    viewTarget ? viewTarget[0] : 0,viewTarget ? viewTarget[1] : 0,viewTarget ? viewTarget[2] : 0);
+                nextEyeLog=time+2;
+            }
+        }
+        if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()),
+             cached && cached->flexValid ? &cached->flex : NULL, haveFlex ? &flexResult : NULL, &eyeStates)) return false;
         if (!m_logged)
         {
             Msg("MDL 44 G-Man preview: sequence '%s', clip '%s' (%u hardware, %u software groups)\n",sequence->label.c_str(),clip.name.c_str(),

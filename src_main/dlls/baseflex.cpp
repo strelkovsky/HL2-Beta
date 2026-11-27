@@ -135,6 +135,13 @@ void CBaseFlex::SetFlexWeight( int index, float value )
 {
 	if (index >= 0 && index < GetNumFlexControllers())
 	{
+		if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+		{
+			const char *name,*type; float lo,hi;
+			if (g_pServerMdl44ModelInfo->FlexController(GetModel(),index,name,type,lo,hi))
+				m_flexWeight.Set(index, hi!=lo ? clamp((value-lo)/(hi-lo),0.0f,1.0f) : value);
+			return;
+		}
 		studiohdr_t *pstudiohdr = GetModelPtr( );
 		if (! pstudiohdr)
 			return;
@@ -160,6 +167,11 @@ float CBaseFlex::GetFlexWeight( int index )
 {
 	if (index >= 0 && index < GetNumFlexControllers())
 	{
+		if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+		{
+			const char *name,*type; float lo,hi;
+			return g_pServerMdl44ModelInfo->FlexController(GetModel(),index,name,type,lo,hi) ? m_flexWeight[index]*(hi-lo)+lo : 0.0f;
+		}
 		studiohdr_t *pstudiohdr = GetModelPtr( );
 		if (! pstudiohdr)
 			return 0;
@@ -192,7 +204,7 @@ int CBaseFlex::FindFlexController( const char *szName )
 	}
 
 	// AssertMsg( 0, UTIL_VarArgs( "flexcontroller %s couldn't be mapped!!!\n", szName ) );
-	return 0;
+	return -1;
 }
 
 //-----------------------------------------------------------------------------

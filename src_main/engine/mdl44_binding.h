@@ -66,7 +66,7 @@ namespace Mdl44Binding
     // Produces model-space skin matrices: global animated bone * inverse bind.
     inline bool BuildSkinMatrices(const Mdl44Skeleton::Skeleton &skeleton,
                                   const std::vector<Mdl44Animation::LocalPose> &pose,
-                                  std::vector<Matrix> &out)
+                                  std::vector<Matrix> &out, std::vector<Matrix> *animatedBones = NULL)
     {
         const size_t count=skeleton.bones.size();
         if (!count || pose.size()!=count) return false;
@@ -96,7 +96,7 @@ namespace Mdl44Binding
             for(int r=0;r<3;++r) for(int c=0;c<4;++c) if(!std::isfinite(inverse.m[r][c])) return false;
             result[i]=Multiply(world[i],inverse);
         }
-        out.swap(result); return true;
+        out.swap(result); if(animatedBones) animatedBones->swap(world); return true;
     }
     inline bool DeformPosition(const StudioVertexView::Vertex &vertex, const Vertex &binding,
                                const std::vector<Matrix> &matrices, float result[3])

@@ -9,6 +9,9 @@
 #include "sentence.h"
 #include "hud_closecaption.h"
 #include "engine/ivmodelinfo.h"
+#include "imdl44modelinfo.h"
+extern IMdl44ModelInfo *g_pClientMdl44ModelInfo;
+ConVar r_mdl44_flex_debug( "r_mdl44_flex_debug", "0", 0, "Log MDL 44 facial animation state." );
 
 IMPLEMENT_CLIENTCLASS_DT(C_BaseFlex, DT_BaseFlex, CBaseFlex)
 	RecvPropArray(
@@ -679,6 +682,16 @@ void C_BaseFlex::ProcessVisemes( Emphasized_Phoneme *classes )
 		if ( !sentence )
 			continue;
 
+        if (r_mdl44_flex_debug.GetBool())
+        {
+            static float nextSentenceLog = 0;
+            if (gpGlobals->curtime >= nextSentenceLog)
+            {
+                int phonemes=0; for(int w=0;w<sentence->m_Words.Size();++w) if(sentence->m_Words[w]) phonemes+=sentence->m_Words[w]->m_Phonemes.Size();
+                Msg("MDL 44 speech: %d words, %d phonemes, time %.2f\n",sentence->m_Words.Size(),phonemes,gpGlobals->curtime-vd->m_flVoiceStartTime);
+                nextSentenceLog=gpGlobals->curtime+2;
+            }
+        }
 		float	sentence_length = engine->GetSentenceLength( vd->m_pAudioSource );
 		// Give it a bit of extra time to clear out...
 		float   sound_end_time = vd->m_flVoiceStartTime + sentence_length + 5.0f;
@@ -718,6 +731,64 @@ void C_BaseFlex::ProcessVisemes( Emphasized_Phoneme *classes )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+bool C_BaseFlex::GetStudio44ViewTarget( float *target ) const
+{
+    for (int i=0;i<3;++i) target[i]=m_viewtarget[i];
+    return true;
+}
+
+int C_BaseFlex::GetStudio44FlexWeights( float *weights, int capacity )
+{
+    if ( !g_pClientMdl44ModelInfo || !GetModel() ) return 0;
+    int count = g_pClientMdl44ModelInfo->FlexControllerCount( GetModel() );
+    if ( count <= 0 || count > capacity || count > 64 ) return 0;
+    int links[64];
+    memset( g_flexweight, 0, sizeof(g_flexweight) );
+    for ( int i=0; i<count; ++i )
+    {
+        const char *name, *type; float minimum, maximum;
+        if ( !g_pClientMdl44ModelInfo->FlexController(GetModel(),i,name,type,minimum,maximum) ) return 0;
+        links[i] = AddGlobalFlexController( const_cast<char *>(name) );
+        if ( links[i] < 0 || links[i] >= MAXSTUDIOFLEXDESC ) return 0;
+        g_flexweight[links[i]] = m_flexWeight[i] * (maximum-minimum) + minimum;
+    }
+    if ( m_blinktoggle != m_prevblinktoggle )
+    {
+        m_prevblinktoggle = m_blinktoggle;
+        m_blinktime = gpGlobals->curtime + BLINKDURATION;
+    }
+    if ( m_iBlink == -1 ) m_iBlink = AddGlobalFlexController( "blink" );
+    if ( m_iBlink >= 0 && m_iBlink < MAXSTUDIOFLEXDESC )
+    {
+        g_flexweight[m_iBlink] = 0;
+        float t = (m_blinktime - gpGlobals->curtime) * M_PI * 0.5 * (1.0/BLINKDURATION);
+        if ( t > 0 && (t=cos(t)) > 0 )
+        {
+            t = sqrtf(t)*2;
+            g_flexweight[m_iBlink] = t > 1 ? 2-t : t;
+        }
+    }
+    float jawBefore=0; int jawIndex=-1;
+    if (r_mdl44_flex_debug.GetBool()) for(int i=0;i<count;++i)
+    {
+        const char *name,*type; float lo,hi;
+        if(g_pClientMdl44ModelInfo->FlexController(GetModel(),i,name,type,lo,hi) && !Q_stricmp(name,"jaw_drop")) { jawIndex=i; jawBefore=g_flexweight[links[i]]; break; }
+    }
+    ProcessVisemes( m_PhonemeClasses );
+    if ( r_mdl44_flex_debug.GetBool() )
+    {
+        static float nextLog = 0;
+        if (gpGlobals->curtime >= nextLog)
+        {
+            float peak=0; for(int i=0;i<count;++i) if(fabs(g_flexweight[links[i]])>peak) peak=fabs(g_flexweight[links[i]]);
+            Msg("MDL 44 flex: %d controls, %d voice sources, max %.3f, jaw %.3f -> %.3f\n",count,MouthInfo().GetNumVoiceSources(),peak,jawBefore,jawIndex>=0?g_flexweight[links[jawIndex]]:0);
+            nextLog=gpGlobals->curtime+2;
+        }
+    }
+    for ( int i=0; i<count; ++i ) weights[i] = g_flexweight[links[i]];
+    return count;
+}
+
 void C_BaseFlex::SetupWeights( )
 {
 	studiohdr_t *hdr = GetModelPtr();
