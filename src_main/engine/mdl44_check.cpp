@@ -83,39 +83,71 @@ public:
     ~Studio44MeshOwner() { Clear(); }
     void Clear()
     {
-        for ( size_t i = 0; i < m_handles.size(); ++i ) m_renderer->DestroyMesh( m_handles[i].handle );
+        for ( size_t i = 0; i < m_handles.size(); ++i )
+        {
+            m_renderer->DestroyMesh( m_handles[i].handle );
+            for ( size_t j = 0; j < m_handles[i].materials.size(); ++j )
+                if ( m_handles[i].materials[j] ) m_handles[i].materials[j]->DecrementReferenceCount();
+        }
         m_handles.clear();
     }
-    bool Add( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source, size_t model, size_t lod )
+    bool Add( IMaterialSystem *materials, const std::vector<IMaterial *> &variants,
+              const IStudio44MeshSource &source, size_t model, size_t lod )
     {
-        Entry entry = { NULL, model, lod, material->IsTranslucent() };
+        if ( variants.empty() || !variants[0] ) return false;
+        void *handle = m_renderer->CreateMesh( materials, variants[0], source );
+        if ( !handle ) return false;
+        Entry entry; entry.handle = handle; entry.model = model; entry.lod = lod; entry.materials = variants;
+        for ( size_t i = 0; i < variants.size(); ++i )
+            if ( variants[i] ) variants[i]->IncrementReferenceCount();
         m_handles.push_back( entry );
-        void *handle = m_renderer->CreateMesh( materials, material, source );
-        if ( !handle ) { m_handles.pop_back(); return false; }
-        m_handles.back().handle = handle;
         return true;
     }
     size_t Count() const { return m_handles.size(); }
-    bool HasOpaque() const { return HasPass( false ); }
-    bool HasTranslucent() const { return HasPass( true ); }
-    bool Draw( const float *transform, float alpha, Mdl44DrawPass pass ) const
+    bool HasSkin( unsigned int skin ) const
+    {
+        bool found = false;
+        for ( size_t i = 0; i < m_handles.size(); ++i )
+            if ( m_handles[i].model == 0 && m_handles[i].lod == 0 )
+            {
+                found = true;
+                if ( !Material( m_handles[i], skin ) ) return false;
+            }
+        return found;
+    }
+    bool HasOpaque( unsigned int skin ) const { return HasPass( skin, false ); }
+    bool HasTranslucent( unsigned int skin ) const { return HasPass( skin, true ); }
+    bool Draw( const float *transform, unsigned int skin, float alpha, Mdl44DrawPass pass ) const
     {
         bool drawn = false;
         for ( size_t i = 0; i < m_handles.size(); ++i )
-            if ( m_handles[i].model == 0 && m_handles[i].lod == 0 &&
-                 ( pass == MDL44_DRAW_ALL || ( pass == MDL44_DRAW_TRANSLUCENT ) == m_handles[i].translucent ) )
-                drawn = m_renderer->DrawMesh( m_handles[i].handle, transform, alpha ) || drawn;
+        {
+            const Entry &entry = m_handles[i];
+            IMaterial *material = Material( entry, skin );
+            if ( entry.model == 0 && entry.lod == 0 && material &&
+                 ( pass == MDL44_DRAW_ALL || ( pass == MDL44_DRAW_TRANSLUCENT ) == material->IsTranslucent() ) )
+                drawn = m_renderer->DrawMesh( entry.handle, material, transform, alpha ) || drawn;
+        }
         return drawn;
     }
 private:
     Studio44MeshOwner( const Studio44MeshOwner & );
     Studio44MeshOwner &operator=( const Studio44MeshOwner & );
     IStudioRender44 *m_renderer;
-    struct Entry { void *handle; size_t model, lod; bool translucent; };
-    bool HasPass( bool translucent ) const
+    struct Entry { void *handle; size_t model, lod; std::vector<IMaterial *> materials; };
+    static IMaterial *Material( const Entry &entry, unsigned int skin )
+    {
+        if ( entry.materials.empty() ) return NULL;
+        return entry.materials[skin < entry.materials.size() ? skin : 0];
+    }
+    bool HasPass( unsigned int skin, bool translucent ) const
     {
         for ( size_t i = 0; i < m_handles.size(); ++i )
-            if ( m_handles[i].model == 0 && m_handles[i].lod == 0 && m_handles[i].translucent == translucent ) return true;
+        {
+            const Entry &entry = m_handles[i];
+            IMaterial *material = Material( entry, skin );
+            if ( entry.model == 0 && entry.lod == 0 && material && material->IsTranslucent() == translucent ) return true;
+        }
         return false;
     }
     std::vector<Entry> m_handles;
@@ -154,10 +186,16 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
                 if ( !model.Mesh( b, m, k, mesh ) ) return false;
                 for ( size_t lod = 0; lod < model.LodCount(); ++lod )
                 {
-                    uint16_t materialIndex;
-                    if ( !model.MeshMaterial( b, m, k, 0, materialIndex ) ) return false;
-                    IMaterial *material = FindStudio44Material( model, lod, materialIndex );
-                    if ( !material || material->NeedsFrameBufferTexture() ) return false;
+                    std::vector<IMaterial *> variants;
+                    for ( size_t skin = 0; skin < description.skinFamilies; ++skin )
+                    {
+                        uint16_t materialIndex;
+                        if ( !model.MeshMaterial( b, m, k, skin, materialIndex ) ) return false;
+                        IMaterial *material = FindStudio44Material( model, lod, materialIndex );
+                        if ( material && material->NeedsFrameBufferTexture() ) material = NULL;
+                        variants.push_back( material );
+                    }
+                    if ( variants.empty() || !variants[0] ) return false;
                     for ( size_t g = 0; ; ++g )
                     {
                         Mdl44::GroupView group;
@@ -165,7 +203,7 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
                         if ( !group.VertexCount() || !group.IndexCount() ) continue;
                         if ( !( group.Flags() & 2 ) ) { ++skipped; continue; }
                         Studio44MeshSource source( mesh, group );
-                        if ( !handles.Add( materialSystemInterface, material, source, m, lod ) ) return false;
+                        if ( !handles.Add( materialSystemInterface, variants, source, m, lod ) ) return false;
                     }
                 }
             }
@@ -177,8 +215,8 @@ struct Mdl44MapCache
     Mdl44::StaticModel model;
     Studio44MeshOwner *gpu;
     std::string name;
-    bool loggedOpaque, loggedTranslucent;
-    Mdl44MapCache() : gpu( NULL ), loggedOpaque( false ), loggedTranslucent( false ) {}
+    bool loggedOpaque, loggedTranslucent, loggedVariant;
+    Mdl44MapCache() : gpu( NULL ), loggedOpaque( false ), loggedTranslucent( false ), loggedVariant( false ) {}
 };
 
 Mdl44MapCache *Mdl44MapCacheCreate( const char *name )
@@ -234,24 +272,26 @@ bool Mdl44MapCacheBounds( const Mdl44MapCache *cache, float *mins, float *maxs, 
 
 bool Mdl44MapCacheDraw( Mdl44MapCache *cache, const float *transform, unsigned int skin, float alpha, Mdl44DrawPass pass )
 {
-    if ( !cache || !cache->gpu || !transform || skin != 0 || !cache->gpu->Draw( transform, alpha, pass ) ) return false;
-    if ( pass != MDL44_DRAW_TRANSLUCENT && cache->gpu->HasOpaque() && !cache->loggedOpaque )
+    if ( !cache || !cache->gpu || !transform || !cache->gpu->HasSkin( skin ) || !cache->gpu->Draw( transform, skin, alpha, pass ) ) return false;
+    if ( pass != MDL44_DRAW_TRANSLUCENT && cache->gpu->HasOpaque( skin ) && !cache->loggedOpaque )
     { Msg( "MDL 44 static prop opaque pass: %s\n", cache->name.c_str() ); cache->loggedOpaque = true; }
-    if ( pass != MDL44_DRAW_OPAQUE && cache->gpu->HasTranslucent() && !cache->loggedTranslucent )
+    if ( pass != MDL44_DRAW_OPAQUE && cache->gpu->HasTranslucent( skin ) && !cache->loggedTranslucent )
     { Msg( "MDL 44 static prop translucent pass: %s\n", cache->name.c_str() ); cache->loggedTranslucent = true; }
+    if ( skin && !cache->loggedVariant )
+    { Msg( "MDL 44 static prop skin %u: %s\n", skin, cache->name.c_str() ); cache->loggedVariant = true; }
     return true;
 }
 
 bool Mdl44MapCacheCanDraw( const Mdl44MapCache *cache, unsigned int skin )
 {
-    return cache && cache->gpu && skin == 0;
+    return cache && cache->gpu && cache->gpu->HasSkin( skin );
 }
 
-bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache )
-{ return cache && cache->gpu && cache->gpu->HasOpaque(); }
+bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache, unsigned int skin )
+{ return cache && cache->gpu && cache->gpu->HasOpaque( skin ); }
 
-bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache )
-{ return cache && cache->gpu && cache->gpu->HasTranslucent(); }
+bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache, unsigned int skin )
+{ return cache && cache->gpu && cache->gpu->HasTranslucent( skin ); }
 
 CON_COMMAND( mdl44_check, "Validate and inspect a static MDL 44 model and its VVD/VTX files." )
 {

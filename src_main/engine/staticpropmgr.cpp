@@ -458,7 +458,7 @@ const QAngle& CStaticProp::GetRenderAngles( void )
 
 bool CStaticProp::IsTransparent( void )
 {
-	if ( CanDrawMdl44() ) return m_Alpha < 255 || Mdl44MapCacheHasTranslucent( m_pModel44 );
+	if ( CanDrawMdl44() ) return m_Alpha < 255 || Mdl44MapCacheHasTranslucent( m_pModel44, m_Skin );
 	return (m_Alpha < 255) || modelinfo->IsTranslucent(m_pModel);
 }
 
@@ -466,8 +466,8 @@ RenderGroup_t CStaticProp::Mdl44RenderGroup() const
 {
 	if ( m_Alpha == 0 ) return RENDER_GROUP_OPAQUE_ENTITY;
 	if ( m_Alpha < 255 ) return RENDER_GROUP_TRANSLUCENT_ENTITY;
-	if ( Mdl44MapCacheHasTranslucent( m_pModel44 ) )
-		return Mdl44MapCacheHasOpaque( m_pModel44 ) ? RENDER_GROUP_TWOPASS : RENDER_GROUP_TRANSLUCENT_ENTITY;
+	if ( Mdl44MapCacheHasTranslucent( m_pModel44, m_Skin ) )
+		return Mdl44MapCacheHasOpaque( m_pModel44, m_Skin ) ? RENDER_GROUP_TWOPASS : RENDER_GROUP_TRANSLUCENT_ENTITY;
 	return RENDER_GROUP_OPAQUE_ENTITY;
 }
 

@@ -116,10 +116,10 @@ namespace
             delete mesh;
         }
 
-        virtual bool DrawMesh( void *handle, const float *transform, float alpha )
+        virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha )
         {
             UploadedMesh *mesh = static_cast<UploadedMesh *>( handle );
-            if ( !mesh || !transform ) return false;
+            if ( !mesh || !material || !transform ) return false;
             float matrix[4][4] = {};
             for ( int i = 0; i < 3; ++i )
                 for ( int j = 0; j < 4; ++j ) matrix[j][i] = transform[i * 4 + j];
@@ -128,9 +128,9 @@ namespace
             mesh->materials->MatrixMode( MATERIAL_MODEL );
             mesh->materials->PushMatrix();
             mesh->materials->LoadMatrix( &matrix[0][0] );
-            mesh->material->AlphaModulate( alpha );
-            mesh->material->ColorModulate( 1.0f, 1.0f, 1.0f );
-            mesh->materials->Bind( mesh->material );
+            material->AlphaModulate( alpha );
+            material->ColorModulate( 1.0f, 1.0f, 1.0f );
+            mesh->materials->Bind( material );
             for ( size_t i = 0; i < mesh->strips.size(); ++i )
             {
                 const StripData &data = mesh->strips[i];
@@ -153,7 +153,7 @@ namespace
             mesh->materials->SetNumBoneWeights( 0 );
             mesh->materials->MatrixMode( MATERIAL_MODEL );
             mesh->materials->PopMatrix();
-            mesh->material->AlphaModulate( 1.0f );
+            material->AlphaModulate( 1.0f );
             return true;
         }
     };

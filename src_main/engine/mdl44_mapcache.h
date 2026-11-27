@@ -12,6 +12,6 @@ void Mdl44MapCacheRestoreLevelGpu();
 bool Mdl44MapCacheBounds( const Mdl44MapCache *cache, float *mins, float *maxs, float *illumination );
 bool Mdl44MapCacheDraw( Mdl44MapCache *cache, const float *transform, unsigned int skin, float alpha, Mdl44DrawPass pass );
 bool Mdl44MapCacheCanDraw( const Mdl44MapCache *cache, unsigned int skin );
-bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache );
-bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache );
+bool Mdl44MapCacheHasOpaque( const Mdl44MapCache *cache, unsigned int skin );
+bool Mdl44MapCacheHasTranslucent( const Mdl44MapCache *cache, unsigned int skin );
 #endif

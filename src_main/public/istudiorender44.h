@@ -5,7 +5,7 @@
 #include "studio_vertex_view.h"
 #include <cstdint>
 
-#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_003"
+#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_004"
 
 class IMaterialSystem;
 class IMaterial;
@@ -46,6 +46,6 @@ public:
     virtual void *CreateMesh( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source ) = 0;
     virtual void DestroyMesh( void *handle ) = 0;
     // transform points to a row-major 3x4 model-to-world matrix.
-    virtual bool DrawMesh( void *handle, const float *transform, float alpha ) = 0;
+    virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha ) = 0;
 };
 #endif
