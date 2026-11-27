@@ -81,7 +81,14 @@ void CHudCreditsLogo::StartLogo(float hold)
 void CHudCreditsLogo::MsgFunc_CreditsMsg(const char *name,int size,void *data)
 {
     BEGIN_READ(data,size); const int type=READ_BYTE();
-    if(type==1) StartLogo(5.0f);
+    if(type==1)
+    {
+        // The 2004 opening map starts revealing the first scene ten seconds
+        // after ShowLogo. Finish the two-second fade before that reveal.
+        const char *level=engine->GetLevelName();
+        const bool opening=level && (!Q_stricmp(level,"maps/d1_trainstation_01.bsp") || !Q_stricmp(level,"d1_trainstation_01"));
+        StartLogo(opening ? 3.0f : 5.0f);
+    }
     else if(type==2) StartIntroCredits();
     else DevMsg("env_credits: credit roll type %d is not implemented yet\n",type);
 }

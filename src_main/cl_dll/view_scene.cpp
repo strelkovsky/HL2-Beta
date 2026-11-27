@@ -85,6 +85,7 @@ static ConVar mat_yuv( "mat_yuv", "0" );
 // GR - HDR
 static ConVar mat_bloom( "mat_bloom", "1" );
 static ConVar cl_script_intro_debug( "cl_script_intro_debug", "0", 0, "Log intro camera and blend state." );
+static ConVar cl_script_intro_force_mode( "cl_script_intro_force_mode", "-1", 0, "Debug intro blend: -1 uses the scene, 7 shows primary, 8 shows secondary." );
 
 ConVar r_DoCovertTransitions("r_DoCovertTransitions", "1", FCVAR_NEVER_AS_STRING );				// internally used by game code and engine to choose when to allow LOD transitions.
 ConVar r_TransitionSensitivity("r_TransitionSensitivity", "6", 0, "Controls when LODs are changed. Lower numbers cause more overt LOD transitions.");
@@ -1772,7 +1773,10 @@ void CViewRender::RenderView( const CViewSetup &view, bool drawViewModel )
 	}
 
 	// if the 3d skybox world is drawn, then don't draw the normal skybox
-	if ( Draw3dSkyboxworld( view ) )
+	// Intro uses a separate, cleared render for each camera (SE2007
+	// ViewDrawScene_Intro). The ordinary 3D skybox pass can cancel the
+	// secondary clear and leave the primary capture in the second image.
+	if ( !introReady && Draw3dSkyboxworld( view ) )
 	{
 		// don't clear the framebuffer, we'll erase the 3d skybox
 		tmpView.clearColor = false;
@@ -1805,14 +1809,21 @@ void CViewRender::RenderView( const CViewSetup &view, bool drawViewModel )
 		IMaterialVar *pAlpha = pIntroMaterial->FindVar( "$alpha", NULL );
 		if ( pMode && pAlpha )
 		{
-			for ( int i = 0; i < g_pIntroData->m_Passes.Count(); ++i )
-			{
-				const IntroDataBlendPass_t &pass = g_pIntroData->m_Passes[i];
-				if ( pass.m_Alpha <= 0 ) continue;
-				pMode->SetIntValue( pass.m_BlendMode );
-				pAlpha->SetFloatValue( pass.m_Alpha );
-				materials->DrawScreenSpaceQuad( pIntroMaterial );
-			}
+            const int forcedMode = cl_script_intro_force_mode.GetInt();
+            if (forcedMode >= 0 && forcedMode <= 9)
+            {
+                pMode->SetIntValue(forcedMode);
+                pAlpha->SetFloatValue(1.0f);
+                materials->DrawScreenSpaceQuad(pIntroMaterial);
+            }
+            else for ( int i = 0; i < g_pIntroData->m_Passes.Count(); ++i )
+            {
+                const IntroDataBlendPass_t &pass = g_pIntroData->m_Passes[i];
+                if ( pass.m_Alpha <= 0 ) continue;
+                pMode->SetIntValue( pass.m_BlendMode );
+                pAlpha->SetFloatValue( pass.m_Alpha );
+                materials->DrawScreenSpaceQuad( pIntroMaterial );
+            }
 		}
 	}
 
