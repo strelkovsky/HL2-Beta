@@ -245,6 +245,7 @@ void VGui_Startup()
 	g_TempConsoleBuffer.AddToTail('\0');
 	VGui_ConPrintf( (const char *)g_TempConsoleBuffer.Base());
 	g_TempConsoleBuffer.Purge();
+	Con_FlushEarlyCapture();
 
 }
 

@@ -13,6 +13,7 @@
 #include "tier0/vcrmode.h"
 #include "engine_hlds_api.h"
 #include "filesystem_engine.h"
+#include "console.h"
 #include "vstdlib/ICommandLine.h"
 #ifndef SWDS
 #include "sys_mainwind.h"
@@ -237,6 +238,7 @@ bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherF
 
 	TRACEINIT( COM_InitFilesystem(), COM_ShutdownFileSystem() );
 
+	Con_BeginEarlyCapture();
 	TRACEINIT( Shader_Init(), Shader_Shutdown() );
 
 	const bool videoInitialized = videomode->Init( (void *)instance );
@@ -247,6 +249,8 @@ bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherF
 		// Initialize general game stuff and create the main window
 		if ( game->Init( ( void *)instance ) )
 		{
+			// Hand spew output over to the engine before it initializes its own console.
+			Con_EndEarlyCapture();
 			// Start up the game engine
 			if ( eng->Load( 
 				false,				// dedicated?
@@ -292,6 +296,7 @@ bool RunListenServer( void *instance, char *basedir, CreateInterfaceFn launcherF
 
 	}
 
+	Con_EndEarlyCapture();
 	if ( videoInitialized )
 		videomode->Shutdown();
 

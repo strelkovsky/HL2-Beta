@@ -44,6 +44,71 @@ qboolean	con_debuglog;
 qboolean	con_initialized;
 
 #ifndef SWDS
+// Shader initialization precedes the engine console and VGUI startup.
+static char s_EarlyConsoleText[65536];
+static size_t s_EarlyConsoleLength;
+static bool s_EarlyLogInitialized;
+static bool s_EarlyCaptureWriting;
+static SpewOutputFunc_t s_PreviousSpewOutput;
+
+static SpewRetval_t Con_EarlySpew( SpewType_t type, const char *message )
+{
+	if ( !s_EarlyCaptureWriting && message )
+	{
+		s_EarlyCaptureWriting = true;
+		const size_t length = strlen( message );
+		// VGui_ConPrintf forwards its argument as a printf format string.
+		for ( size_t i = 0; i < length; ++i )
+		{
+			const size_t needed = message[i] == '%' ? 2 : 1;
+			if ( needed > sizeof( s_EarlyConsoleText ) - 1 - s_EarlyConsoleLength ) break;
+			if ( needed == 2 ) s_EarlyConsoleText[s_EarlyConsoleLength++] = '%';
+			s_EarlyConsoleText[s_EarlyConsoleLength++] = message[i];
+		}
+		s_EarlyConsoleText[s_EarlyConsoleLength] = 0;
+		if ( con_debuglog )
+		{
+			FileHandle_t file = g_pFileSystem->Open( "console.log", "a" );
+			if ( file != FILESYSTEM_INVALID_HANDLE )
+			{
+				g_pFileSystem->Write( message, length, file );
+				g_pFileSystem->Close( file );
+			}
+		}
+		s_EarlyCaptureWriting = false;
+	}
+	return s_PreviousSpewOutput ? s_PreviousSpewOutput( type, message ) : SPEW_CONTINUE;
+}
+
+void Con_BeginEarlyCapture()
+{
+	s_EarlyConsoleLength = 0;
+	s_EarlyConsoleText[0] = 0;
+	con_debuglog = CommandLine()->FindParm( "-condebug" ) != 0;
+	if ( con_debuglog && CommandLine()->FindParm( "-conclearlog" ) )
+		g_pFileSystem->RemoveFile( "console.log", "GAME" );
+	s_EarlyLogInitialized = true;
+	s_PreviousSpewOutput = GetSpewOutputFunc();
+	SpewOutputFunc( Con_EarlySpew );
+}
+
+void Con_EndEarlyCapture()
+{
+	if ( GetSpewOutputFunc() == Con_EarlySpew )
+		SpewOutputFunc( s_PreviousSpewOutput );
+	s_PreviousSpewOutput = NULL;
+}
+
+void Con_FlushEarlyCapture()
+{
+	if ( s_EarlyConsoleLength )
+		VGui_ConPrintf( s_EarlyConsoleText );
+	s_EarlyConsoleLength = 0;
+	s_EarlyConsoleText[0] = 0;
+}
+#endif
+
+#ifndef SWDS
 extern  bool		scr_drawloading;
 
 ConVar		con_trace( "con_trace", "0" );
@@ -197,11 +262,16 @@ Con_Init
 void Con_Init (void)
 {
 	con_debuglog = CommandLine()->FindParm( "-condebug" ) != 0;
-	if ( con_debuglog && CommandLine()->FindParm( "-conclearlog" ) )
+#ifndef SWDS
+	if ( !s_EarlyLogInitialized )
+#endif
 	{
-		g_pFileSystem->RemoveFile( "console.log", "GAME" );
+		if ( con_debuglog && CommandLine()->FindParm( "-conclearlog" ) )
+			g_pFileSystem->RemoveFile( "console.log", "GAME" );
 	}
-
+#ifndef SWDS
+	s_EarlyLogInitialized = false;
+#endif
 	con_initialized = true;
 }
 

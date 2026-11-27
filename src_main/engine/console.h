@@ -21,6 +21,12 @@ typedef unsigned char byte;
 //
 extern qboolean con_initialized;
 
+#ifndef SWDS
+void Con_BeginEarlyCapture();
+void Con_EndEarlyCapture();
+void Con_FlushEarlyCapture();
+#endif
+
 void Con_Init (void);
 void Con_Shutdown (void);   // Free overlay line buffer.
 void Con_ClearNotify (void);
