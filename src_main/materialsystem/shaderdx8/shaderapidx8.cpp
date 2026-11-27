@@ -36,6 +36,7 @@ mat_fullbright 1 doesn't work properly on alpha materials in testroom_standards
 #include "locald3dtypes.h"												   
 #include "UtlVector.h"
 #include "IHardwareConfigInternal.h"
+#include "ihdrshadercontrol.h"
 #include "UtlStack.h"
 #include "IShaderUtil.h"
 #include "ShaderAPIDX8_Global.h"
@@ -1247,6 +1248,18 @@ private:
 //-----------------------------------------------------------------------------
 // Class Factory
 //-----------------------------------------------------------------------------
+// Hardware support alone is not enough: the HDR shader library must load.
+static bool s_bHDRShaderAvailable = false;
+
+class CHDRShaderControl : public IHDRShaderControl
+{
+public:
+	virtual void SetHDRShaderAvailable( bool available ) { s_bHDRShaderAvailable = available; }
+};
+static CHDRShaderControl g_HDRShaderControl;
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CHDRShaderControl, IHDRShaderControl,
+	HDR_SHADER_CONTROL_INTERFACE_VERSION, g_HDRShaderControl )
+
 static CShaderAPIDX8 g_ShaderAPIDX8;
 IShaderAPIDX8 *g_pShaderAPIDX8 = &g_ShaderAPIDX8;
 IMaterialSystemHardwareConfig *g_pHardwareConfig = &g_ShaderAPIDX8;
@@ -3270,7 +3283,7 @@ bool CShaderAPIDX8::SupportsHDR() const
 //	if (m_Mode.m_Format != IMAGE_FORMAT_BGRA8888)
 //		return false;
 
-	return m_Caps.m_SupportsHDR;
+	return m_Caps.m_SupportsHDR && s_bHDRShaderAvailable;
 }
 
 const char *CShaderAPIDX8::GetHWSpecificShaderDLLName()	const

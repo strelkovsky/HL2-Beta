@@ -20,6 +20,7 @@
 #include "texturemanager.h"
 #include "itextureinternal.h"
 #include "IHardwareConfigInternal.h"
+#include "ihdrshadercontrol.h"
 #include "utlstack.h"
 #include "utlbuffer.h"
 #include "vmatrix.h"
@@ -281,9 +282,16 @@ void CShaderSystem::LoadAllShaderDLLs( )
 
 	const char *pRequestedShader = CommandLine()->ParmValue( "-shader" );
 	const char *pShaderName = pRequestedShader ? pRequestedShader : HardwareConfig()->GetHWSpecificShaderDLLName();
-	if ( pShaderName && !LoadShaderDLL( pShaderName ) && pRequestedShader )
+	IHDRShaderControl *pHDRControl = static_cast<IHDRShaderControl *>(
+		MaterialSystem()->QueryInterface( HDR_SHADER_CONTROL_INTERFACE_VERSION ) );
+	if ( pHDRControl ) pHDRControl->SetHDRShaderAvailable( false );
+	if ( pShaderName )
 	{
-		Warning( "Unable to load shader DLL '%s' specified by -shader; previously loaded shaders remain in use.\n", pRequestedShader );
+		const bool loaded = LoadShaderDLL( pShaderName );
+		if ( loaded && pRequestedShader && Q_stristr( pRequestedShader, "_hdr_" ) && pHDRControl )
+			pHDRControl->SetHDRShaderAvailable( true );
+		if ( !loaded && pRequestedShader )
+			Warning( "Unable to load shader DLL '%s' specified by -shader; previously loaded shaders remain in use.\n", pRequestedShader );
 	}
 
 #ifdef _DEBUG
