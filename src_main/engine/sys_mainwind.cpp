@@ -666,11 +666,6 @@ int CGame::WindowProc (
 			    return lRet;
 			}
         
-			if ( wParam == SC_CLOSE ) 
-			{
-				return lRet;
-			}
-
 			if ( wParam == SC_KEYMENU )
 			{
 				return lRet;
@@ -694,6 +689,10 @@ int CGame::WindowProc (
 			}
 #endif
 			break;
+
+		case WM_CLOSE:
+			// The queued message requests a normal engine shutdown at the end of the frame.
+			return 0;
 
 		case WM_SIZE:
 			if (wParam == SIZE_MINIMIZED)
