@@ -15,6 +15,7 @@ public:
 	DECLARE_CLASS( CDynamicLight, CBaseEntity );
 
 	void Spawn( void );
+	void DynamicLightThink( void );
 	bool KeyValue( const char *szKeyName, const char *szValue );
 
 	DECLARE_SERVERCLASS();
@@ -44,6 +45,7 @@ BEGIN_DATADESC( CDynamicLight )
 	DEFINE_FIELD( CDynamicLight, m_ActualFlags, FIELD_CHARACTER ),
 	DEFINE_FIELD( CDynamicLight, m_Flags, FIELD_CHARACTER ),
 	DEFINE_FIELD( CDynamicLight, m_On, FIELD_BOOLEAN ),
+	DEFINE_THINKFUNC( CDynamicLight, DynamicLightThink ),
 
 	// Inputs
 	DEFINE_INPUT( CDynamicLight, m_Radius,		FIELD_FLOAT,	"distance" ),
@@ -142,6 +144,28 @@ void CDynamicLight::Spawn( void )
 	UTIL_SetSize( this, vec3_origin, vec3_origin );
 	Relink();
 	AddEFlags( EFL_FORCE_CHECK_TRANSMIT );
+
+	// Follow the target as in SE2007, including when parented lights move.
+	if ( m_target != NULL_STRING )
+	{
+		SetThink( &CDynamicLight::DynamicLightThink );
+		SetNextThink( gpGlobals->curtime + 0.1f );
+	}
+}
+
+void CDynamicLight::DynamicLightThink( void )
+{
+	if ( m_target == NULL_STRING )
+		return;
+	CBaseEntity *target = GetNextTarget();
+	if ( target )
+	{
+		const Vector direction = target->GetAbsOrigin() - GetAbsOrigin();
+		QAngle angles;
+		VectorAngles( direction, angles );
+		SetAbsAngles( angles );
+	}
+	SetNextThink( gpGlobals->curtime + 0.1f );
 }
 
 

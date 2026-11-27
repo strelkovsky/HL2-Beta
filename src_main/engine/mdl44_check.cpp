@@ -706,12 +706,14 @@ public:
             if (mat_fullbright.GetInt()==1)
             {
                 Vector white[6]; for(int i=0;i<6;++i) white[i].Init(1,1,1);
+                materialSystemInterface->SetAmbientLight(1,1,1);
                 g_pStudioRender->SetAmbientLightColors(white,white);
                 g_pStudioRender->SetLocalLights(0,NULL);
             }
             else
             {
                 g_pStudioRender->SetAmbientLightColors(lighting.r_boxcolor,lighting.totalboxcolor);
+                materialSystemInterface->SetAmbientLight(0,0,0);
                 LightDesc_t lights[MAXLOCALLIGHTS]; int count=0;
                 for(int i=0;i<lighting.numlights && count<MAXLOCALLIGHTS;++i)
                     if(WorldLightToMaterialLight(lighting.locallight[i],lights[count]))
