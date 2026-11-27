@@ -166,7 +166,28 @@ int main(int argc, char **argv)
     assert(Mdl44Animation::SamplePose(data,extra.clips[0],groupSkeleton,0,pose) && pose.size()==56);
     assert(!Mdl44Animation::SamplePose(data,extra.clips[0],groupSkeleton,1,pose));
     assert(Mdl44Animation::Resolve(group.data(),group.size(),ani.data(),ani.size(),extra,extra.clips[1],data));
-    assert(!Mdl44Animation::SamplePose(data,extra.clips[1],groupSkeleton,0,pose)); // Delta sequences need blending.
+    assert(!Mdl44Animation::SamplePose(data,extra.clips[1],groupSkeleton,0,pose));
+    assert(Mdl44Animation::SampleDeltaPose(data,extra.clips[1],groupSkeleton,0,pose));
+    assert(pose.size()==groupSkeleton.bones.size());
+    // Bone 0 has a delta track. Its translation is a scaled offset, not the bind position.
+    assert(Mdl44Animation::FindTrack(data,0,56,track) && (track.flags & Mdl44Animation::Delta));
+    for (unsigned axis=0;axis<3;++axis)
+    {
+        assert(Mdl44Animation::SampleChannel(data,track,false,axis,0,value)==Mdl44Animation::ChannelValue);
+        assert(std::fabs(pose[0].position[axis]-value*groupSkeleton.bones[0].positionScale[axis])<0.0001f);
+    }
+    size_t deltaCount=0;
+    for(size_t i=0;i<extra.clips.size();++i)
+    {
+        const Mdl44Animation::Descriptor &clip=extra.clips[i];
+        if(!(clip.flags & 4) || !Mdl44Animation::Resolve(group.data(),group.size(),ani.data(),ani.size(),extra,clip,data)) continue;
+        if(!Mdl44Animation::SampleDeltaPose(data,clip,groupSkeleton,0,pose) ||
+           !Mdl44Animation::SampleDeltaPose(data,clip,groupSkeleton,clip.frames-1,last))
+        { std::fprintf(stderr,"bad delta pose %s\n",clip.name.c_str()); return 13; }
+        ++deltaCount;
+    }
+    assert(deltaCount>0);
+    std::printf("sampled %u included delta clips at first and last frame\n",unsigned(deltaCount));
     std::vector<unsigned char> bad=mdl; Put32(bad,184,0x7fffffff);
     assert(!Mdl44Animation::Parse(bad.data(),bad.size(),clips)); assert(clips.clips.size()==14);
     std::printf("bound %u vertices; sampled local and external animation channels; invalid inputs rejected\n",static_cast<unsigned>(binding.size()));

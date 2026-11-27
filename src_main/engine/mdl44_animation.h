@@ -180,19 +180,27 @@ namespace Mdl44Animation
         q[0]=sr*cp*cy-cr*sp*sy; q[1]=cr*sp*cy+sr*cp*sy;
         q[2]=cr*cp*sy-sr*sp*cy; q[3]=cr*cp*cy+sr*sp*sy;
     }
-    // Sample a non-delta clip at an integer frame. Results are local to each
-    // parent; sequence blends, procedural bones and fractional frames are not applied.
-    inline bool SamplePose(const Data &data, const Descriptor &clip, const Mdl44Skeleton::Skeleton &skeleton,
-                           unsigned int frame, std::vector<LocalPose> &out)
+    // Sample local transforms at an integer frame. Delta clips default to an
+    // identity transform; blending and fractional frames are separate steps.
+    inline bool SamplePoseImpl(const Data &data, const Descriptor &clip, const Mdl44Skeleton::Skeleton &skeleton,
+                               unsigned int frame, bool deltaClip, std::vector<LocalPose> &out)
     {
-        if (!data.bytes || frame >= static_cast<unsigned int>(clip.frames) || (clip.flags & 4) ||
+        if (!data.bytes || frame >= static_cast<unsigned int>(clip.frames) || bool(clip.flags & 4) != deltaClip ||
             skeleton.bones.empty() || !Span(data.start,4,data.size)) return false;
         std::vector<LocalPose> result(skeleton.bones.size());
         std::vector<bool> seen(skeleton.bones.size(),false);
         for(size_t i=0;i<result.size();++i)
         {
-            std::memcpy(result[i].position,skeleton.bones[i].position,sizeof(result[i].position));
-            std::memcpy(result[i].rotation,skeleton.bones[i].quaternion,sizeof(result[i].rotation));
+            if (deltaClip)
+            {
+                std::memset(result[i].position,0,sizeof(result[i].position));
+                std::memset(result[i].rotation,0,sizeof(result[i].rotation)); result[i].rotation[3]=1.0f;
+            }
+            else
+            {
+                std::memcpy(result[i].position,skeleton.bones[i].position,sizeof(result[i].position));
+                std::memcpy(result[i].rotation,skeleton.bones[i].quaternion,sizeof(result[i].rotation));
+            }
         }
         size_t at=data.start;
         for(size_t count=0; count <= skeleton.bones.size(); ++count)
@@ -200,12 +208,24 @@ namespace Mdl44Animation
             if (!Span(at,4,data.size)) return false;
             const unsigned int bone=data.bytes[at], flags=data.bytes[at+1];
             if (bone==255) { out.swap(result); return true; }
-            if (bone>=result.size() || seen[bone] || (flags & ~63u) || (flags & Delta) ||
+            if (bone>=result.size() || seen[bone] || (flags & ~63u) ||
                 ((flags & RawRotation) && (flags & RawRotation64)) ||
                 ((flags & (RawRotation|RawRotation64)) && (flags & AnimatedRotation)) ||
                 ((flags & RawPosition) && (flags & AnimatedPosition))) return false;
             seen[bone]=true;
             const Mdl44Skeleton::Bone &base=skeleton.bones[bone]; LocalPose &pose=result[bone];
+            // Track flags, not descriptor flags, decide whether channels are offsets.
+            const bool deltaTrack=(flags & Delta)!=0;
+            if (deltaTrack)
+            {
+                std::memset(pose.position,0,sizeof(pose.position));
+                std::memset(pose.rotation,0,sizeof(pose.rotation)); pose.rotation[3]=1.0f;
+            }
+            else
+            {
+                std::memcpy(pose.position,base.position,sizeof(pose.position));
+                std::memcpy(pose.rotation,base.quaternion,sizeof(pose.rotation));
+            }
             Track track={at,static_cast<unsigned char>(bone),static_cast<unsigned char>(flags)};
             if (flags & (RawRotation|RawRotation64))
             {
@@ -217,11 +237,11 @@ namespace Mdl44Animation
                 for(unsigned axis=0;axis<3;++axis)
                 {
                     int16_t v=0; if (SampleChannel(data,track,true,axis,frame,v)!=ChannelValue) return false;
-                    angles[axis]=base.rotation[axis]+v*base.rotationScale[axis];
+                    angles[axis]=(deltaTrack ? 0.0f : base.rotation[axis])+v*base.rotationScale[axis];
                     if (!std::isfinite(angles[axis])) return false;
                 }
                 EulerQuaternion(angles,pose.rotation);
-                if (base.flags & 0x00100000)
+                if (!deltaTrack && (base.flags & 0x00100000))
                 {
                     float dot=0; for(int j=0;j<4;++j) dot+=pose.rotation[j]*base.alignment[j];
                     if(dot<0) for(int j=0;j<4;++j) pose.rotation[j]=-pose.rotation[j];
@@ -238,7 +258,7 @@ namespace Mdl44Animation
                 for(unsigned axis=0;axis<3;++axis)
                 {
                     int16_t v=0; if(SampleChannel(data,track,false,axis,frame,v)!=ChannelValue) return false;
-                    pose.position[axis]=base.position[axis]+v*base.positionScale[axis];
+                    pose.position[axis]=(deltaTrack ? 0.0f : base.position[axis])+v*base.positionScale[axis];
                     if (!std::isfinite(pose.position[axis])) return false;
                 }
             }
@@ -249,5 +269,11 @@ namespace Mdl44Animation
         }
         return false;
     }
+    inline bool SamplePose(const Data &data, const Descriptor &clip, const Mdl44Skeleton::Skeleton &skeleton,
+                           unsigned int frame, std::vector<LocalPose> &out)
+    { return SamplePoseImpl(data,clip,skeleton,frame,false,out); }
+    inline bool SampleDeltaPose(const Data &data, const Descriptor &clip, const Mdl44Skeleton::Skeleton &skeleton,
+                                unsigned int frame, std::vector<LocalPose> &out)
+    { return SamplePoseImpl(data,clip,skeleton,frame,true,out); }
 }
 #endif

@@ -20,6 +20,11 @@ int main(int argc,char **argv)
     for(size_t i=0;i<master.includes.size();++i) if(Mdl44Sequence::EqualName(master.includes[i].name,"models/gman_gestures.mdl")) foundInclude=true;
     for(size_t i=0;i<include.sequences.size();++i) if(Mdl44Sequence::EqualName(include.sequences[i].label,"HG_headback")) foundGesture=true;
     assert(foundInclude && foundGesture);
+    const Mdl44Sequence::Sequence *lean=Mdl44Sequence::Find(include,"P_leanback");
+    assert(lean && lean->layers.size()==2 && lean->boneWeights.size()==56);
+    assert(Mdl44Sequence::EqualName(include.sequences[lean->layers[0].sequence].label,"P_leanbackapexDelta"));
+    assert(Mdl44Sequence::EqualName(include.sequences[lean->layers[1].sequence].label,"P_leanbackloopDelta"));
+    assert(lean->layers[1].flags==64);
     Mdl44Skeleton::Skeleton masterSkeleton,localSkeleton;
     assert(Mdl44Skeleton::Parse(a.data(),a.size(),masterSkeleton) && Mdl44Skeleton::Parse(b.data(),b.size(),localSkeleton));
     std::vector<int> map; assert(Mdl44Sequence::MapBones(masterSkeleton,localSkeleton,map));

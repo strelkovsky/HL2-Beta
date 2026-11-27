@@ -7,11 +7,19 @@
 
 namespace Mdl44Sequence
 {
+    struct Layer
+    {
+        int16_t sequence, pose;
+        int32_t flags;
+        float start, peak, tail, end;
+    };
     struct Sequence
     {
         std::string label;
         int32_t flags, width, height;
         std::vector<unsigned int> animations;
+        std::vector<float> boneWeights;
+        std::vector<Layer> layers;
     };
     struct Include { std::string label, name; };
     struct Data { std::vector<Sequence> sequences; std::vector<Include> includes; };
@@ -51,6 +59,31 @@ namespace Mdl44Sequence
                 const int16_t anim=Mdl44Animation::ReadI16(p,blendStart+size_t(j)*2);
                 if (anim<0 || static_cast<size_t>(anim)>=animCount) return false;
                 seq.animations.push_back(static_cast<unsigned int>(anim));
+            }
+            const int32_t layerCount=ReadI32(p,at+148), layerOffset=ReadI32(p,at+152);
+            const int32_t weightOffset=ReadI32(p,at+156);
+            const size_t boneCount=ReadU32(p,156);
+            if (layerCount<0 || layerOffset<0 || weightOffset<0 || boneCount>128 ||
+                static_cast<size_t>(layerOffset)>length-at || static_cast<size_t>(weightOffset)>length-at) return false;
+            const size_t layerStart=at+static_cast<size_t>(layerOffset), weightStart=at+static_cast<size_t>(weightOffset);
+            if (static_cast<size_t>(layerCount)>(length-layerStart)/24 || boneCount>(length-weightStart)/4) return false;
+            for(size_t j=0;j<boneCount;++j)
+            {
+                float weight; std::memcpy(&weight,p+weightStart+j*4,4);
+                if (!std::isfinite(weight) || weight<0.0f || weight>1.0f) return false;
+                seq.boneWeights.push_back(weight);
+            }
+            for(int32_t j=0;j<layerCount;++j)
+            {
+                const size_t pos=layerStart+size_t(j)*24; Layer layer;
+                layer.sequence=Mdl44Animation::ReadI16(p,pos); layer.pose=Mdl44Animation::ReadI16(p,pos+2);
+                layer.flags=ReadI32(p,pos+4);
+                std::memcpy(&layer.start,p+pos+8,4); std::memcpy(&layer.peak,p+pos+12,4);
+                std::memcpy(&layer.tail,p+pos+16,4); std::memcpy(&layer.end,p+pos+20,4);
+                if (layer.sequence<0 || static_cast<size_t>(layer.sequence)>=seqCount ||
+                    !std::isfinite(layer.start) || !std::isfinite(layer.peak) ||
+                    !std::isfinite(layer.tail) || !std::isfinite(layer.end)) return false;
+                seq.layers.push_back(layer);
             }
             parsed.sequences.push_back(seq);
         }
