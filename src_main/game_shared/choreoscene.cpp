@@ -1004,6 +1004,13 @@ CChoreoEvent *CChoreoScene::ParseEvent( CChoreoActor *actor, CChoreoChannel *cha
 		{
 			ParseRamp( m_pTokenizer, e );
 		}
+		else if ( !stricmp( m_pTokenizer->CurrentToken(), "cctype" ) ||
+			!stricmp( m_pTokenizer->CurrentToken(), "cctoken" ) )
+		{
+			// Retail scenes carry subtitle metadata. This engine does not yet
+			// implement captions, but must consume the value (which may be "").
+			m_pTokenizer->GetToken( false );
+		}
 	}
 
 	if ( channel )
@@ -1240,6 +1247,29 @@ bool CChoreoScene::ParseFromBuffer( ISceneTokenProcessor *tokenizer )
 		else if ( !stricmp( m_pTokenizer->CurrentToken(), "scene_ramp" ) )
 		{
 			ParseSceneRamp( m_pTokenizer, this );
+		}
+		else if ( !stricmp( m_pTokenizer->CurrentToken(), "scalesettings" ) )
+		{
+			// Faceposer editor zoom settings have no effect on runtime playback.
+			if ( !m_pTokenizer->GetToken( true ) || stricmp( m_pTokenizer->CurrentToken(), "{" ) )
+			{
+				m_pTokenizer->Error( "expecting { after scalesettings\n" );
+				break;
+			}
+			while ( true )
+			{
+				if ( !m_pTokenizer->GetToken( true ) )
+				{
+					m_pTokenizer->Error( "unterminated scalesettings\n" );
+					break;
+				}
+				if ( !stricmp( m_pTokenizer->CurrentToken(), "}" ) ) break;
+				if ( !m_pTokenizer->GetToken( false ) || !stricmp( m_pTokenizer->CurrentToken(), "}" ) )
+				{
+					m_pTokenizer->Error( "expecting scalesettings value\n" );
+					break;
+				}
+			}
 		}
 		else
 		{

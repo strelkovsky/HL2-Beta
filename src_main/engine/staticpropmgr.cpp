@@ -311,7 +311,7 @@ static CStaticPropMgr	s_StaticPropMgr;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CStaticPropMgr, IStaticPropMgrClient, INTERFACEVERSION_STATICPROPMGR_CLIENT, s_StaticPropMgr);
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CStaticPropMgr, IStaticPropMgrServer, INTERFACEVERSION_STATICPROPMGR_SERVER, s_StaticPropMgr);
 
-void Mdl44MapCacheReleaseLevelGpu() { s_StaticPropMgr.ReleaseMdl44Gpu(); }
+void Mdl44MapCacheReleaseLevelGpu() { Mdl44EntityPreviewReleaseGpu(); s_StaticPropMgr.ReleaseMdl44Gpu(); }
 void Mdl44MapCacheRestoreLevelGpu() { s_StaticPropMgr.RestoreMdl44Gpu(); }
 
 
@@ -1204,6 +1204,7 @@ void CStaticPropMgr::LevelInitClient()
 
 void CStaticPropMgr::LevelShutdownClient()
 {
+	Mdl44EntityPreviewShutdown();
 	if ( !m_bClientInitialized )
 		return;
 

@@ -5,6 +5,7 @@
 #include "materialsystem/imaterial.h"
 #include "materialsystem/imesh.h"
 #include <vector>
+#include <cmath>
 
 // memdbgon must be the last include file.
 #include "tier0/memdbgon.h"
@@ -18,6 +19,9 @@ namespace
         IMaterialSystem *materials;
         IMaterial *material;
         IMesh *mesh;
+        bool software;
+        std::vector<Studio44UploadVertex> sourceVertices;
+        std::vector<uint16_t> sourceIndices;
         std::vector<StripData> strips;
     };
 
@@ -25,6 +29,13 @@ namespace
     {
     public:
         virtual void *CreateMesh( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source )
+        { return Create( materials, material, source, false ); }
+
+        virtual void *CreateSoftwareMesh( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source )
+        { return Create( materials, material, source, true ); }
+
+    private:
+        void *Create( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source, bool software )
         {
             const unsigned int vertexCount = source.VertexCount(), indexCount = source.IndexCount();
             if ( !materials || !material || !vertexCount || vertexCount > 65535 || !indexCount || indexCount > 0x7fffffff ) return NULL;
@@ -33,8 +44,14 @@ namespace
             for ( unsigned int i = 0; i < vertexCount; ++i )
             {
                 Studio44UploadVertex &v = vertices[i];
-                if ( !source.Vertex( i, v ) || v.boneCount > 3 ) return NULL;
-                for ( unsigned int j = 0; j < v.boneCount; ++j )
+                if ( !source.Vertex( i, v ) || v.boneCount > 3 || v.vertex.boneCount > 3 ) return NULL;
+                if ( software )
+                {
+                    if ( !v.vertex.boneCount ) return NULL;
+                    for ( unsigned int j=0; j<v.vertex.boneCount; ++j )
+                        if ( v.vertex.bones[j] < 0 || v.vertex.bones[j] >= 128 || !std::isfinite(v.vertex.weights[j]) || v.vertex.weights[j] < 0.0f ) return NULL;
+                }
+                else for ( unsigned int j = 0; j < v.boneCount; ++j )
                     if ( v.weightIndex[j] >= v.vertex.boneCount || v.boneId[j] < -1 || v.boneId[j] >= NUM_MODEL_TRANSFORMS ) return NULL;
             }
             for ( unsigned int i = 0; i < indexCount; ++i )
@@ -43,6 +60,8 @@ namespace
             UploadedMesh *result = new UploadedMesh;
             if ( !result ) return NULL;
             result->materials = materials;
+            result->mesh = NULL;
+            result->software = software;
             const unsigned int stripCount = source.StripCount();
             for ( unsigned int i = 0; i < stripCount; ++i )
             {
@@ -61,6 +80,12 @@ namespace
                 result->strips.push_back( data );
             }
             if ( result->strips.empty() ) { delete result; return NULL; }
+            if ( software )
+            {
+                result->sourceVertices.swap(vertices); result->sourceIndices.swap(indices);
+                material->IncrementReferenceCount(); result->material=material;
+                return result;
+            }
             IMesh *mesh = materials->CreateStaticMesh( MATERIAL_VERTEX_FORMAT_MODEL, false );
             if ( !mesh ) { delete result; return NULL; }
             CMeshBuilder builder;
@@ -108,11 +133,12 @@ namespace
             return result;
         }
 
+    public:
         virtual void DestroyMesh( void *handle )
         {
             UploadedMesh *mesh = static_cast<UploadedMesh *>( handle );
             if ( !mesh ) return;
-            mesh->materials->DestroyStaticMesh( mesh->mesh );
+            if ( mesh->mesh ) mesh->materials->DestroyStaticMesh( mesh->mesh );
             mesh->material->DecrementReferenceCount();
             delete mesh;
         }
@@ -130,11 +156,49 @@ namespace
         }
 
     private:
+        bool DrawSoftware( UploadedMesh *mesh, IMaterial *material, const float *transform,
+                           const float *bones, unsigned int boneCount, float alpha )
+        {
+            if ( !bones || !boneCount ) return false;
+            std::vector<Studio44UploadVertex> transformed=mesh->sourceVertices;
+            for ( size_t i=0; i<transformed.size(); ++i )
+            {
+                Studio44UploadVertex &v=transformed[i]; const Studio44UploadVertex &src=mesh->sourceVertices[i];
+                if (!Studio44Transform::SkinVertex(src.vertex,src.tangent,bones,boneCount,
+                    v.vertex.position,v.vertex.normal,v.tangent)) return false;
+            }
+            float matrix[4][4]; Studio44Transform::ToMaterial(transform,NULL,matrix);
+            mesh->materials->MatrixMode(MATERIAL_MODEL); mesh->materials->PushMatrix(); mesh->materials->LoadMatrix(&matrix[0][0]);
+            mesh->materials->SetNumBoneWeights(0); material->AlphaModulate(alpha); material->ColorModulate(1,1,1);
+            mesh->materials->Bind(material);
+            IMesh *dynamic=mesh->materials->GetDynamicMesh(false,0,0,material);
+            if (!dynamic) { material->AlphaModulate(1); mesh->materials->MatrixMode(MATERIAL_MODEL); mesh->materials->PopMatrix(); return false; }
+            CMeshBuilder builder; builder.Begin(dynamic,MATERIAL_HETEROGENOUS,static_cast<int>(transformed.size()),static_cast<int>(mesh->sourceIndices.size()));
+            for(size_t i=0;i<transformed.size();++i)
+            {
+                const Studio44UploadVertex &v=transformed[i];
+                builder.Position3fv(v.vertex.position); builder.Normal3fv(v.vertex.normal); builder.TexCoord2fv(0,v.vertex.texcoord);
+                if (material->NeedsTangentSpace()) builder.UserData(v.tangent);
+                builder.Color4ub(255,255,255,255); builder.AdvanceVertex();
+            }
+            for(size_t i=0;i<mesh->sourceIndices.size();++i) { builder.Index(mesh->sourceIndices[i]); builder.AdvanceIndex(); }
+            builder.End();
+            for(size_t i=0;i<mesh->strips.size();++i)
+            {
+                const Studio44Strip &strip=mesh->strips[i].strip;
+                dynamic->SetPrimitiveType(strip.flags & 2 ? MATERIAL_TRIANGLE_STRIP : MATERIAL_TRIANGLES);
+                dynamic->SetColorMesh(NULL); dynamic->Draw(strip.indexOffset,strip.indexCount);
+            }
+            mesh->materials->MatrixMode(MATERIAL_MODEL); mesh->materials->PopMatrix(); material->AlphaModulate(1);
+            return true;
+        }
+
         bool Draw( void *handle, IMaterial *material, const float *transform,
                    const float *bones, unsigned int boneCount, float alpha )
         {
             UploadedMesh *mesh = static_cast<UploadedMesh *>( handle );
             if ( !mesh || !material || !transform ) return false;
+            if ( mesh->software ) return DrawSoftware( mesh, material, transform, bones, boneCount, alpha );
             // Validate before changing the material-system matrix stacks.
             for ( size_t i=0; i<mesh->strips.size(); ++i )
                 for ( size_t j=0; j<mesh->strips[i].states.size(); ++j )

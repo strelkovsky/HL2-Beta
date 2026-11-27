@@ -1480,10 +1480,11 @@ public:
 	bool		GetToken( bool crossline );
 	bool		TokenAvailable( void );
 	void		Error( const char *fmt, ... );
-	void		SetBuffer( char *buffer );
+	void		SetBuffer( char *buffer, const char *filename );
 private:
 	char		*m_pBuffer;
 	char		m_szToken[ 1024 ];
+	char		m_szFilename[ MAX_PATH ];
 };
 
 //-----------------------------------------------------------------------------
@@ -1503,10 +1504,13 @@ const char *CSceneTokenProcessor::CurrentToken( void )
 bool CSceneTokenProcessor::GetToken( bool crossline )
 {
 	// NOTE: crossline is ignored here, may need to implement if needed
+	if ( !m_pBuffer )
+	{
+		m_szToken[0] = 0;
+		return false;
+	}
 	m_pBuffer = engine->COM_ParseFile( m_pBuffer, m_szToken );
-	if ( strlen( m_szToken ) >= 0 )
-		return true;
-	return false;
+	return m_pBuffer != NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -1515,14 +1519,14 @@ bool CSceneTokenProcessor::GetToken( bool crossline )
 //-----------------------------------------------------------------------------
 bool CSceneTokenProcessor::TokenAvailable( void )
 {
-	if ( m_pBuffer[ 0 ] == '\n' )
-		return false;
-
-	if (m_pBuffer[ 0 ] == ';' || m_pBuffer[ 0 ] == '#' ||		 // semicolon and # is comment field
-		(m_pBuffer[ 0 ] == '/' && m_pBuffer[ 1 ] == '/'))		// also make // a comment field
-		return false;
-
-	return true;
+	const char *p = m_pBuffer;
+	if ( !p ) return false;
+	while ( *p && *p <= ' ' )
+	{
+		if ( *p == '\n' ) return false;
+		++p;
+	}
+	return *p && *p != ';' && *p != '#' && !( p[0] == '/' && p[1] == '/' );
 }
 
 //-----------------------------------------------------------------------------
@@ -1538,7 +1542,7 @@ void CSceneTokenProcessor::Error( const char *fmt, ... )
 	Q_vsnprintf( string, sizeof(string), fmt, argptr );
 	va_end( argptr );
 
-	Warning( "%s", string );
+	Warning( "Scene %s: %s", m_szFilename, string );
 	Assert(0);
 }
 
@@ -1546,9 +1550,10 @@ void CSceneTokenProcessor::Error( const char *fmt, ... )
 // Purpose: 
 // Input  : *buffer - 
 //-----------------------------------------------------------------------------
-void CSceneTokenProcessor::SetBuffer( char *buffer )
+void CSceneTokenProcessor::SetBuffer( char *buffer, const char *filename )
 {
 	m_pBuffer = buffer;
+	Q_strncpy( m_szFilename, filename ? filename : "<unknown>", sizeof( m_szFilename ) );
 }
 
 static CSceneTokenProcessor g_TokenProcessor;
@@ -1561,7 +1566,7 @@ CChoreoScene *CSceneEntity::LoadScene( const char *filename )
 	if ( !buffer )
 		return NULL;
 
-	g_TokenProcessor.SetBuffer( buffer );
+	g_TokenProcessor.SetBuffer( buffer, filename );
 	CChoreoScene *scene = ChoreoLoadScene( &m_SceneCallback, &g_TokenProcessor, Scene_Printf );
 	return scene;
 }

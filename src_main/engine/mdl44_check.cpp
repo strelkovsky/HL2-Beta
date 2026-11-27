@@ -6,6 +6,8 @@
 #include "filesystem_engine.h"
 #include "gl_matsysiface.h"
 #include "istudiorender44.h"
+#include "imdl44entitypreview.h"
+#include "interface.h"
 #include "mdl44_model.h"
 #include "mdl44_mapcache.h"
 #include "mdl44_skeleton.h"
@@ -101,18 +103,21 @@ public:
         m_handles.clear();
     }
     bool Add( IMaterialSystem *materials, const std::vector<IMaterial *> &variants,
-              const IStudio44MeshSource &source, size_t model, size_t lod )
+              const IStudio44MeshSource &source, size_t model, size_t lod, bool software )
     {
         if ( variants.empty() || !variants[0] ) return false;
-        void *handle = m_renderer->CreateMesh( materials, variants[0], source );
+        void *handle = software ? m_renderer->CreateSoftwareMesh( materials, variants[0], source ) :
+                                  m_renderer->CreateMesh( materials, variants[0], source );
         if ( !handle ) return false;
-        Entry entry; entry.handle = handle; entry.model = model; entry.lod = lod; entry.materials = variants;
+        Entry entry; entry.handle = handle; entry.model = model; entry.lod = lod; entry.materials = variants; entry.software = software;
         for ( size_t i = 0; i < variants.size(); ++i )
             if ( variants[i] ) variants[i]->IncrementReferenceCount();
         m_handles.push_back( entry );
         return true;
     }
     size_t Count() const { return m_handles.size(); }
+    size_t SoftwareCount() const
+    { size_t count=0; for(size_t i=0;i<m_handles.size();++i) if(m_handles[i].software) ++count; return count; }
     bool HasSkin( unsigned int skin ) const
     {
         bool found = false;
@@ -157,7 +162,7 @@ private:
     Studio44MeshOwner( const Studio44MeshOwner & );
     Studio44MeshOwner &operator=( const Studio44MeshOwner & );
     IStudioRender44 *m_renderer;
-    struct Entry { void *handle; size_t model, lod; std::vector<IMaterial *> materials; };
+    struct Entry { void *handle; size_t model, lod; std::vector<IMaterial *> materials; bool software; };
     static IMaterial *Material( const Entry &entry, unsigned int skin )
     {
         if ( entry.materials.empty() ) return NULL;
@@ -198,7 +203,7 @@ static IMaterial *FindStudio44Material( const Mdl44::StaticModel &model, size_t 
     return NULL;
 }
 
-static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOwner &handles, size_t &skipped )
+static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOwner &handles, size_t &skipped, bool allowSoftware = false )
 {
     const Mdl44Static::Description &description = model.Description();
     for ( size_t b = 0; b < description.bodyParts.size(); ++b )
@@ -224,14 +229,80 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
                         Mdl44::GroupView group;
                         if ( !model.Group( b, m, lod, k, g, group ) ) break;
                         if ( !group.VertexCount() || !group.IndexCount() ) continue;
-                        if ( !( group.Flags() & 2 ) ) { ++skipped; continue; }
+                        const bool software = !( group.Flags() & 2 );
+                        if ( software && !allowSoftware ) { ++skipped; continue; }
                         Studio44MeshSource source( mesh, group );
-                        if ( !handles.Add( materialSystemInterface, variants, source, m, lod ) ) return false;
+                        if ( !handles.Add( materialSystemInterface, variants, source, m, lod, software ) ) return false;
                     }
                 }
             }
     return handles.Count() != 0;
 }
+
+// A deliberately isolated preview while sequence selection and VCD playback
+// are being implemented. It does not change the legacy model loader.
+class Mdl44EntityPreview : public IMdl44EntityPreview
+{
+public:
+    Mdl44EntityPreview() : m_gpu(NULL), m_attempted(false), m_valid(false), m_logged(false) {}
+    void ReleaseGpu() { delete m_gpu; m_gpu=NULL; }
+    void Shutdown()
+    {
+        ReleaseGpu(); m_model=Mdl44::StudioModel(); m_mdl.clear(); m_ani.clear();
+        m_skeleton=Mdl44Skeleton::Skeleton(); m_anims=Mdl44Animation::Animations();
+        m_attempted=false; m_valid=false; m_logged=false;
+    }
+    virtual bool Draw(const char *name, const float *transform, unsigned int skin, float time)
+    {
+        if (!name || _stricmp(name,"models/gman_high.mdl") || !transform) return false;
+        if (!m_attempted)
+        {
+            m_attempted=true;
+            if (!ReadModelFile44(name,m_mdl) || !Mdl44Skeleton::Parse(m_mdl.data(),m_mdl.size(),m_skeleton) ||
+                !Mdl44Animation::Parse(m_mdl.data(),m_mdl.size(),m_anims) || m_anims.clips.empty() ||
+                !LoadModelGeometry44(name,m_model,false))
+            { Warning("MDL 44 G-Man preview: unable to load model or animation data\n"); return false; }
+            ReadModelFile44("models/gman_high.ani",m_ani); m_valid=true;
+        }
+        if (!m_valid) return false;
+        const Mdl44Animation::Descriptor &clip=m_anims.clips[0];
+        Mdl44Animation::Data data;
+        std::vector<Mdl44Animation::LocalPose> pose;
+        std::vector<Mdl44Binding::Matrix> matrices;
+        const int frame=std::isfinite(time) && time>0 ? static_cast<int>(std::fmod(double(time)*clip.fps,clip.frames)) : 0;
+        if (!Mdl44Animation::Resolve(m_mdl.data(),m_mdl.size(),m_ani.empty()?NULL:m_ani.data(),m_ani.size(),m_anims,clip,data) ||
+            !Mdl44Animation::SamplePose(data,clip,m_skeleton,frame,pose) ||
+            !Mdl44Binding::BuildSkinMatrices(m_skeleton,pose,matrices) || matrices.empty()) return false;
+        if (!m_gpu)
+        {
+            CreateInterfaceFn factory=Sys_GetFactory("studiorender.dll");
+            IStudioRender44 *renderer=factory ? static_cast<IStudioRender44 *>(factory(STUDIO_RENDER_44_INTERFACE_VERSION,NULL)) : NULL;
+            if (!renderer || !materialSystemInterface) return false;
+            Studio44MeshOwner *gpu=new Studio44MeshOwner(renderer); size_t skipped=0;
+            if (!UploadStaticModel44(m_model,*gpu,skipped,true) || skipped) { delete gpu; return false; }
+            m_gpu=gpu;
+        }
+        if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()))) return false;
+        if (!m_logged)
+        {
+            Msg("MDL 44 G-Man preview: drawing clip '%s' (%u hardware, %u software groups)\n",clip.name.c_str(),
+                static_cast<unsigned>(m_gpu->Count()-m_gpu->SoftwareCount()),static_cast<unsigned>(m_gpu->SoftwareCount()));
+            m_logged=true;
+        }
+        return true;
+    }
+private:
+    Studio44MeshOwner *m_gpu;
+    bool m_attempted, m_valid, m_logged;
+    std::vector<unsigned char> m_mdl, m_ani;
+    Mdl44::StudioModel m_model;
+    Mdl44Skeleton::Skeleton m_skeleton;
+    Mdl44Animation::Animations m_anims;
+};
+static Mdl44EntityPreview s_Mdl44EntityPreview;
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44EntityPreview, IMdl44EntityPreview, MDL44_ENTITY_PREVIEW_VERSION, s_Mdl44EntityPreview);
+void Mdl44EntityPreviewReleaseGpu() { s_Mdl44EntityPreview.ReleaseGpu(); }
+void Mdl44EntityPreviewShutdown() { s_Mdl44EntityPreview.Shutdown(); }
 
 struct Mdl44MapCache
 {
@@ -432,12 +503,13 @@ CON_COMMAND( mdl44_skin_draw_test, "Upload and draw one MDL 44 skinned pose for 
     IStudioRender44 *renderer=factory ? static_cast<IStudioRender44 *>(factory(STUDIO_RENDER_44_INTERFACE_VERSION,NULL)) : NULL;
     if (!renderer || !materialSystemInterface) { Warning("mdl44_skin_draw_test: StudioRender 44 unavailable\n"); return; }
     Studio44MeshOwner gpu(renderer); size_t skipped=0;
-    if (!UploadStaticModel44(model,gpu,skipped)) { Warning("mdl44_skin_draw_test: upload failed\n"); return; }
+    if (!UploadStaticModel44(model,gpu,skipped,true)) { Warning("mdl44_skin_draw_test: upload failed\n"); return; }
     const float transform[12]={1,0,0,0, 0,1,0,0, 0,0,1,0};
     if (!gpu.DrawSkinned(transform,0,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size())))
     { Warning("mdl44_skin_draw_test: GPU draw failed\n"); return; }
-    Msg("mdl44_skin_draw_test: %s clip '%s' frame %d: GPU draw completed, %u hardware groups uploaded; %u software groups skipped\n",
-        name.c_str(),clip.name.c_str(),frame,static_cast<unsigned>(gpu.Count()),static_cast<unsigned>(skipped));
+    Msg("mdl44_skin_draw_test: %s clip '%s' frame %d: draw completed, %u hardware groups and %u software groups uploaded; %u skipped\n",
+        name.c_str(),clip.name.c_str(),frame,static_cast<unsigned>(gpu.Count()-gpu.SoftwareCount()),
+        static_cast<unsigned>(gpu.SoftwareCount()),static_cast<unsigned>(skipped));
 }
 
 CON_COMMAND( mdl44_check, "Validate and inspect a static MDL 44 model and its VVD/VTX files." )

@@ -5,7 +5,7 @@
 #include "studio_vertex_view.h"
 #include <cstdint>
 
-#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_005"
+#define STUDIO_RENDER_44_INTERFACE_VERSION "VStudioRender44_006"
 
 class IMaterialSystem;
 class IMaterial;
@@ -44,6 +44,8 @@ public:
     // The returned opaque handle owns one GPU mesh; release it before the
     // material system or StudioRender is shut down.
     virtual void *CreateMesh( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source ) = 0;
+    // Software groups retain source vertices and skin them when drawn.
+    virtual void *CreateSoftwareMesh( IMaterialSystem *materials, IMaterial *material, const IStudio44MeshSource &source ) = 0;
     virtual void DestroyMesh( void *handle ) = 0;
     // transform points to a row-major 3x4 model-to-world matrix.
     virtual bool DrawMesh( void *handle, IMaterial *material, const float *transform, float alpha ) = 0;

@@ -8,6 +8,8 @@ bool Mdl44MapCacheCreateGpu( Mdl44MapCache *cache );
 bool Mdl44MapCacheReleaseGpu( Mdl44MapCache *cache );
 void Mdl44MapCacheDestroy( Mdl44MapCache *cache );
 void Mdl44MapCacheReleaseLevelGpu();
+void Mdl44EntityPreviewReleaseGpu();
+void Mdl44EntityPreviewShutdown();
 void Mdl44MapCacheRestoreLevelGpu();
 bool Mdl44MapCacheBounds( const Mdl44MapCache *cache, float *mins, float *maxs, float *illumination );
 bool Mdl44MapCacheDraw( Mdl44MapCache *cache, const float *transform, unsigned int skin, float alpha, Mdl44DrawPass pass );

@@ -28,10 +28,15 @@
 #include <KeyValues.h>
 #include "c_rope.h"
 #include "isaverestore.h"
+#include "cdll_client_int.h"
+#include "networkstringtable_clientdll.h"
+#include "imdl44entitypreview.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+
+static ConVar r_mdl44_gman_preview( "r_mdl44_gman_preview", "0", 0, "Experimental G-Man MDL 44 animation preview." );
 
 static ConVar r_drawmrmmodels(  "r_drawmrmmodels", "1" );
 static ConVar r_drawvehicles( "r_drawvehicles", "1" );
@@ -1192,6 +1197,26 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 
 	if ( !GetModel() )
 		return 0;
+
+	// The network table retains the original model name after ERROR substitution.
+	// This opt-in preview does not yet drive choreography or facial flexes.
+	if ( ( flags & STUDIO_RENDER ) && r_mdl44_gman_preview.GetBool() &&
+		g_pMdl44EntityPreview && networkstringtable )
+	{
+		TABLEID table = networkstringtable->FindStringTable( "modelprecache" );
+		int modelIndex = GetModelIndex();
+		if ( table != INVALID_STRING_TABLE && modelIndex >= 0 && modelIndex < networkstringtable->GetNumStrings( table ) )
+		{
+			const char *name = networkstringtable->GetString( table, modelIndex );
+			if ( name && !Q_stricmp( name, "models/gman_high.mdl" ) )
+			{
+				matrix3x4_t transform;
+				AngleMatrix( GetRenderAngles(), GetRenderOrigin(), transform );
+				if ( g_pMdl44EntityPreview->Draw( name, &transform[0][0], m_nSkin, gpGlobals->curtime ) )
+					return 1;
+			}
+		}
+	}
 
 	// This should never happen, but if the server class hierarchy has bmodel entities derived from CBaseAnimating or does a
 	//  SetModel with the wrong type of model, this could occur.
