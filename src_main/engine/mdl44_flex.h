@@ -15,7 +15,7 @@ namespace Mdl44Flex
     struct Delta { unsigned short index; unsigned char speed, side; float position[3], normal[3]; };
     struct Flex { int desc, pair; float target[4]; std::vector<Delta> deltas; };
     struct Mesh { unsigned body, model, mesh, vertexCount; std::vector<Flex> flexes; };
-    struct Eye { unsigned body, model; int bone; float origin[3], up[3], forward[3], zoffset, irisScale; };
+    struct Eye { unsigned body, model; int bone; float origin[3], up[3], forward[3], zoffset, radius, irisScale; int upper[3], lower[3], upperLid, lowerLid; float upperTarget[3], lowerTarget[3]; bool nonFACS; };
     struct EyeMesh { unsigned body, model, mesh, eye; };
     struct Data { std::vector<Eye> eyes; std::vector<EyeMesh> eyeMeshes; std::vector<std::string> descriptions; std::vector<Controller> controllers; std::vector<Rule> rules; std::vector<Mesh> meshes; };
     inline int I32(const unsigned char *p,size_t at) { return Mdl44Skeleton::ReadI32(p,at); }
@@ -55,10 +55,18 @@ namespace Mdl44Flex
                 if(eyeCount<0 || eyeCount>16 || !Relative(model,I32(p,model+104),len,eyeStart) || !Span(eyeStart,eyeCount,172,len)) return false;
                 for(int ei=0;ei<eyeCount;++ei) {
                     size_t at=eyeStart+size_t(ei)*172; Eye e; e.body=bi; e.model=mi; e.bone=I32(p,at+4);
-                    e.zoffset=F32(p,at+20); e.irisScale=F32(p,at+60);
-                    if(e.bone<0 || e.bone>=h.numbones || !std::isfinite(e.zoffset) || !std::isfinite(e.irisScale) || e.irisScale<=0) return false;
-                    for(int j=0;j<3;++j) { e.origin[j]=F32(p,at+8+j*4); e.up[j]=F32(p,at+28+j*4); e.forward[j]=F32(p,at+40+j*4);
-                        if(!std::isfinite(e.origin[j]) || !std::isfinite(e.up[j]) || !std::isfinite(e.forward[j])) return false; }
+                    e.zoffset=F32(p,at+20); e.radius=F32(p,at+24); e.irisScale=F32(p,at+60);
+                    e.upperLid=I32(p,at+116); e.lowerLid=I32(p,at+120); e.nonFACS=p[at+140]!=0;
+                    if(e.bone<0 || e.bone>=h.numbones || !std::isfinite(e.zoffset) || !std::isfinite(e.radius) || e.radius<=0 || !std::isfinite(e.irisScale) || e.irisScale<=0) return false;
+                    if(!e.nonFACS && (e.upperLid<0 || e.upperLid>=h.numflexdesc || e.lowerLid<0 || e.lowerLid>=h.numflexdesc)) return false;
+                    for(int j=0;j<3;++j) {
+                        e.origin[j]=F32(p,at+8+j*4); e.up[j]=F32(p,at+28+j*4); e.forward[j]=F32(p,at+40+j*4);
+                        e.upper[j]=I32(p,at+68+j*4); e.lower[j]=I32(p,at+80+j*4);
+                        e.upperTarget[j]=F32(p,at+92+j*4); e.lowerTarget[j]=F32(p,at+104+j*4);
+                        if(!std::isfinite(e.origin[j]) || !std::isfinite(e.up[j]) || !std::isfinite(e.forward[j]) ||
+                           !std::isfinite(e.upperTarget[j]) || !std::isfinite(e.lowerTarget[j])) return false;
+                        if(!e.nonFACS && (e.upper[j]<0 || e.upper[j]>=h.numflexdesc || e.lower[j]<0 || e.lower[j]>=h.numflexdesc)) return false;
+                    }
                     d.eyes.push_back(e);
                 }
                 for(int ki=0;ki<meshCount;++ki) { size_t mesh=meshes+size_t(ki)*116,flexStart; int vertices=I32(p,mesh+8),count=I32(p,mesh+16);
@@ -104,6 +112,24 @@ namespace Mdl44Flex
             if(k!=1 || !std::isfinite(stack[0]))return false;result[rule.flex]=stack[0];
         }
         out.swap(result);return true;
+    }
+    // Matches SE2007 R_StudioEyelidFACS; directions are in the eye bone's local space.
+    inline bool Eyelids(const Eye &eye, const float localUp[3], const float localForward[3], std::vector<float> &weights) {
+        if(eye.nonFACS) return true;
+        if(eye.radius<=0 || eye.upperLid<0 || eye.lowerLid<0 || size_t(eye.upperLid)>=weights.size() || size_t(eye.lowerLid)>=weights.size()) return false;
+        float upper=0, lower=0;
+        for(int i=0;i<3;++i) {
+            if(eye.upper[i]<0 || eye.lower[i]<0 || size_t(eye.upper[i])>=weights.size() || size_t(eye.lower[i])>=weights.size()) return false;
+            upper+=weights[eye.upper[i]]*std::asin(Clamp(eye.upperTarget[i]/eye.radius,-1,1));
+            lower+=weights[eye.lower[i]]*std::asin(Clamp(eye.lowerTarget[i]/eye.radius,-1,1));
+        }
+        float lidUpper=0,lidLower=0;
+        for(int i=0;i<3;++i) {
+            lidUpper+=eye.radius*(std::sin(upper)*localUp[i]+std::cos(upper)*localForward[i])*eye.up[i];
+            lidLower+=eye.radius*(std::sin(lower)*localUp[i]+std::cos(lower)*localForward[i])*eye.up[i];
+        }
+        if(!std::isfinite(lidUpper) || !std::isfinite(lidLower)) return false;
+        weights[eye.upperLid]=lidUpper; weights[eye.lowerLid]=lidLower; return true;
     }
     inline float Ramp(const Flex &f,float value) {
         if(value<=f.target[0]||value>=f.target[3])return 0;

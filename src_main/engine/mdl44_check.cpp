@@ -262,7 +262,7 @@ private:
 // Eye projection follows R_StudioEyeballPosition in SE2007. Matrices and
 // view targets are world-space, as expected by the Eyes shader.
 static ConVar r_mdl44_eye_debug("r_mdl44_eye_debug", "0", 0, "Log the MDL 44 eye target and iris projection.");
-struct Studio44EyeState { Vector origin, up; float u[4], v[4]; bool valid; };
+struct Studio44EyeState { Vector origin, up, worldUp, worldForward; float u[4], v[4]; bool valid; };
 static bool Studio44EyeProjection(const Mdl44Flex::Eye &eye, const Mdl44Binding::Matrix &bone,
                                   const float *target, Studio44EyeState &out)
 {
@@ -279,7 +279,7 @@ static bool Studio44EyeProjection(const Mdl44Flex::Eye &eye, const Mdl44Binding:
     forward+=right*(eye.zoffset*2); if(VectorNormalize(forward)<0.001f) return false;
     CrossProduct(forward,up,right); if(VectorNormalize(right)<0.001f) return false;
     CrossProduct(right,forward,up); if(VectorNormalize(up)<0.001f) return false;
-    out.origin=origin; out.up=Vector(eye.up[0],eye.up[1],eye.up[2]);
+    out.origin=origin; out.up=Vector(eye.up[0],eye.up[1],eye.up[2]); out.worldUp=up; out.worldForward=forward;
     for(int j=0;j<3;++j) { out.u[j]=-eye.irisScale*right[j]; out.v[j]=-eye.irisScale*up[j]; }
     out.u[3]=0.5f-DotProduct(origin,Vector(out.u[0],out.u[1],out.u[2]));
     out.v[3]=0.5f-DotProduct(origin,Vector(out.v[0],out.v[1],out.v[2]));
@@ -774,7 +774,19 @@ public:
                 const Mdl44Flex::Eye &eye=cached->flex.eyes[i];
                 eyeStates[i].valid=false;
                 if(eye.bone>=0 && static_cast<size_t>(eye.bone)<animatedBones.size())
-                    Studio44EyeProjection(eye,Mdl44Binding::Multiply(modelToWorld,animatedBones[eye.bone]),eyeTarget,eyeStates[i]);
+                {
+                    const Mdl44Binding::Matrix eyeBone=Mdl44Binding::Multiply(modelToWorld,animatedBones[eye.bone]);
+                    if(Studio44EyeProjection(eye,eyeBone,eyeTarget,eyeStates[i]) && haveFlex)
+                    {
+                        float localUp[3]={}, localForward[3]={};
+                        for(int j=0;j<3;++j) for(int r=0;r<3;++r)
+                        {
+                            localUp[j]+=eyeBone.m[r][j]*eyeStates[i].worldUp[r];
+                            localForward[j]+=eyeBone.m[r][j]*eyeStates[i].worldForward[r];
+                        }
+                        Mdl44Flex::Eyelids(eye,localUp,localForward,flexResult);
+                    }
+                }
             }
         }
         if (r_mdl44_eye_debug.GetBool() && !eyeStates.empty())

@@ -19,5 +19,12 @@ int main(int argc,char **argv) {
    if(std::fabs(delta.position[0])+std::fabs(delta.position[1])+std::fabs(delta.position[2])>0.0001f) ++moved;
  }
  std::printf("jaw_drop changes %zu vertex deltas\n",moved);assert(moved>0);
+ // A neutral lid controller must move the eyelid outputs, as in SE2007.
+ const Mdl44Flex::Eye &eye=data.eyes[0];std::vector<float> face(data.descriptions.size(),0);
+ face[eye.upper[1]]=1;face[eye.lower[1]]=1;const float up[3]={eye.up[0],eye.up[1],eye.up[2]};
+ const float forward[3]={eye.forward[0],eye.forward[1],eye.forward[2]};
+ assert(Mdl44Flex::Eyelids(eye,up,forward,face));
+ std::printf("neutral eyelids: %.4f %.4f\n",face[eye.upperLid],face[eye.lowerLid]);
+ assert(std::fabs(face[eye.upperLid])+std::fabs(face[eye.lowerLid])>0.001f);
  auto invalid=bytes; std::memset(invalid.data()+276,0xff,4); Mdl44Flex::Data parsed;assert(!Mdl44Flex::Parse(invalid.data(),invalid.size(),parsed));return 0;
 }
