@@ -12,6 +12,7 @@
 #include "mdl44_mapcache.h"
 #include "mdl44_skeleton.h"
 #include "mdl44_animation.h"
+#include "mdl44_sequence.h"
 #include "mdl44_binding.h"
 #include <climits>
 
@@ -249,7 +250,7 @@ public:
     void Shutdown()
     {
         ReleaseGpu(); m_model=Mdl44::StudioModel(); m_mdl.clear(); m_ani.clear();
-        m_skeleton=Mdl44Skeleton::Skeleton(); m_anims=Mdl44Animation::Animations();
+        m_skeleton=Mdl44Skeleton::Skeleton(); m_anims=Mdl44Animation::Animations(); m_sequences=Mdl44Sequence::Data();
         m_attempted=false; m_valid=false; m_logged=false;
     }
     virtual bool Draw(const char *name, const float *transform, unsigned int skin, float time)
@@ -260,12 +261,17 @@ public:
             m_attempted=true;
             if (!ReadModelFile44(name,m_mdl) || !Mdl44Skeleton::Parse(m_mdl.data(),m_mdl.size(),m_skeleton) ||
                 !Mdl44Animation::Parse(m_mdl.data(),m_mdl.size(),m_anims) || m_anims.clips.empty() ||
+                !Mdl44Sequence::Parse(m_mdl.data(),m_mdl.size(),m_sequences) || m_sequences.sequences.empty() ||
                 !LoadModelGeometry44(name,m_model,false))
             { Warning("MDL 44 G-Man preview: unable to load model or animation data\n"); return false; }
             ReadModelFile44("models/gman_high.ani",m_ani); m_valid=true;
         }
         if (!m_valid) return false;
-        const Mdl44Animation::Descriptor &clip=m_anims.clips[0];
+        // The idle sequence references a local animation; sequence indices are
+        // not animation indices, especially for included models.
+        const Mdl44Sequence::Sequence *sequence=Mdl44Sequence::Find(m_sequences,"idle_subtle");
+        if (!sequence || sequence->animations.size()!=1 || sequence->animations[0]>=m_anims.clips.size()) return false;
+        const Mdl44Animation::Descriptor &clip=m_anims.clips[sequence->animations[0]];
         Mdl44Animation::Data data;
         std::vector<Mdl44Animation::LocalPose> pose;
         std::vector<Mdl44Binding::Matrix> matrices;
@@ -285,7 +291,7 @@ public:
         if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()))) return false;
         if (!m_logged)
         {
-            Msg("MDL 44 G-Man preview: drawing clip '%s' (%u hardware, %u software groups)\n",clip.name.c_str(),
+            Msg("MDL 44 G-Man preview: sequence '%s', clip '%s' (%u hardware, %u software groups)\n",sequence->label.c_str(),clip.name.c_str(),
                 static_cast<unsigned>(m_gpu->Count()-m_gpu->SoftwareCount()),static_cast<unsigned>(m_gpu->SoftwareCount()));
             m_logged=true;
         }
@@ -298,6 +304,7 @@ private:
     Mdl44::StudioModel m_model;
     Mdl44Skeleton::Skeleton m_skeleton;
     Mdl44Animation::Animations m_anims;
+    Mdl44Sequence::Data m_sequences;
 };
 static Mdl44EntityPreview s_Mdl44EntityPreview;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44EntityPreview, IMdl44EntityPreview, MDL44_ENTITY_PREVIEW_VERSION, s_Mdl44EntityPreview);
