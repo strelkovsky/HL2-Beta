@@ -1634,7 +1634,7 @@ void CBaseVSShader::DrawVertexLitAndUnlitGenericPass_HDR( bool bVertexLitGeneric
 	bool hasEnvmapMask = params[envmapMaskVar]->IsDefined();
 	bool hasBaseAlphaEnvmapMask = IS_FLAG_SET( MATERIAL_VAR_BASEALPHAENVMAPMASK );
 	bool hasSelfIllum = IS_FLAG_SET( MATERIAL_VAR_SELFILLUM );
-	bool hasNormalMapAlphaEnvmapMask = IS_FLAG_SET( MATERIAL_VAR_NORMALMAPALPHAENVMAPMASK );
+	bool hasNormalMapAlphaEnvmapMask = hasEnvmap && hasBump && IS_FLAG_SET( MATERIAL_VAR_NORMALMAPALPHAENVMAPMASK );
 	bool hasVertexColor = bVertexLitGeneric ? false : IS_FLAG_SET( MATERIAL_VAR_VERTEXCOLOR );
 	bool hasVertexAlpha = bVertexLitGeneric ? false : IS_FLAG_SET( MATERIAL_VAR_VERTEXALPHA );
 	bool bHasNormal = bVertexLitGeneric || hasEnvmap;
