@@ -22,6 +22,7 @@
 #include "materialsystem/imaterial.h"
 #include "lightcache.h"
 #include "istudiorender.h"
+#include "mdl44_modelcache.h"
 
 
 //-----------------------------------------------------------------------------
@@ -130,6 +131,10 @@ void CModelInfo::GetModelRenderBounds( const model_t *model, int sequence, Vecto
 		return;
 	}
 
+	Studio44::studiohdr_t nativeHeader;
+	if ( Mdl44ModelCacheHeader( model, nativeHeader ) && Studio44::Bounds( nativeHeader, true, &mins.x, &maxs.x ) )
+		return;
+
 	switch( model->type )
 	{
 	case mod_studio:
@@ -233,6 +238,15 @@ void CModelInfo::GetIlluminationPoint( const model_t *model, const Vector& origi
 	const QAngle& angles, Vector* pLightingOrigin )
 {
 	Assert( model->type == mod_studio );
+	Studio44::studiohdr_t nativeHeader;
+	if ( Mdl44ModelCacheHeader( model, nativeHeader ) && Studio44::ValidVector( nativeHeader.illumposition ) )
+	{
+		matrix3x4_t matrix;
+		AngleMatrix( angles, origin, matrix );
+		Vector local( nativeHeader.illumposition[0], nativeHeader.illumposition[1], nativeHeader.illumposition[2] );
+		VectorTransform( local, matrix, *pLightingOrigin );
+		return;
+	}
 	studiohdr_t* pStudioHdr = (studiohdr_t*)GetModelExtraData(model);
 	if (pStudioHdr)
 		R_StudioGetLightingCenter( pStudioHdr, origin, angles, pLightingOrigin );

@@ -26,6 +26,9 @@ BEGIN_VS_SHADER( Eyes,
 
 	SHADER_INIT_PARAMS()
 	{
+		// Match the SE2007 default when a retail eye material omits $glint.
+		if ( !params[GLINT]->IsDefined() )
+			params[GLINT]->SetStringValue( "models/humans/male/glint" );
 		// default to 'MODEL' mode...
 		if (!IS_FLAG_DEFINED( MATERIAL_VAR_MODEL ))
 			SET_FLAGS( MATERIAL_VAR_MODEL );
@@ -35,6 +38,7 @@ BEGIN_VS_SHADER( Eyes,
 	{
 		LoadTexture( BASETEXTURE );
 		LoadTexture( IRIS );
+		LoadTexture( GLINT );
 	}
 
 	void SetTextureTransform( IMaterialVar** params, IShaderDynamicAPI *pShaderAPI,

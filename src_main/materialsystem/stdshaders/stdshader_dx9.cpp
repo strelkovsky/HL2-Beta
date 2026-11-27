@@ -18,6 +18,7 @@
 #include "fxctmp9\WorldVertexTransition_ps20.inc"
 #include "fxctmp9\WorldVertexTransition_vs20.inc"
 #include "fxctmp9\hsv_ps20.inc"
+#include "fxctmp9\introscreenspaceeffect_ps20.inc"
 #include "fxctmp9\lightmappedgeneric_ps20.inc"
 #include "fxctmp9\lightmappedgeneric_vs20.inc"
 #include "fxctmp9\screenspaceeffect_vs20.inc"

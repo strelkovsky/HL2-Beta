@@ -3,8 +3,9 @@
 #ifndef IMDL44MODELINFO_H
 #define IMDL44MODELINFO_H
 #include "studio44.h"
+#include "imdl44entitypreview.h"
 struct model_t;
-#define MDL44_MODEL_INFO_VERSION "Mdl44ModelInfo002"
+#define MDL44_MODEL_INFO_VERSION "Mdl44ModelInfo005"
 class IMdl44ModelInfo
 {
 public:
@@ -16,5 +17,11 @@ public:
     virtual int SequenceCount(const model_t *model) const = 0;
     virtual int FindSequence(const model_t *model, const char *name) const = 0;
     virtual const char *SequenceName(const model_t *model, int sequence) const = 0;
+    // Duration is available only for sequences with one animation; unsupported
+    // pose-parameter blends return false instead of a guessed value.
+    virtual bool SequenceInfo(const model_t *model, int sequence, int &flags, float &duration) const = 0;
+    virtual int FindAttachment(const model_t *model, const char *name) const = 0;
+    // Model-space attachment transform with the supported base pose and overlays.
+    virtual bool AttachmentTransform(const model_t *model, int attachment, float time, const Studio44Layer *layers, unsigned int layerCount, float *matrix3x4) const = 0;
 };
 #endif

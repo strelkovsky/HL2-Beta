@@ -30,6 +30,10 @@
 #include "vstdlib/random.h"
 #include "engine/IEngineSound.h"
 #include "vstdlib/strtools.h"
+#include "imdl44modelinfo.h"
+
+extern IMdl44ModelInfo *g_pServerMdl44ModelInfo;
+static ConVar sv_mdl44_scene_layers( "sv_mdl44_scene_layers", "1", 0, "Experimentally send MDL 44 VCD sequence layers." );
 
 static ConVar scene_allowoverrides( "scene_allowoverrides", "1", 0, "When playing back a choreographed scene, allow per-model expression overrides." );
 
@@ -248,6 +252,21 @@ void CBaseFlex::ClearExpressions( CChoreoScene *scene )
 //			expression - 
 //			duration - 
 //-----------------------------------------------------------------------------
+static int SceneSequenceIndex( CBaseFlex *actor, const char *name )
+{
+	model_t *model=actor->GetModel();
+	if ( sv_mdl44_scene_layers.GetBool() && g_pServerMdl44ModelInfo && model && g_pServerMdl44ModelInfo->HasModel(model) )
+	{
+		const int sequence=g_pServerMdl44ModelInfo->FindSequence(model,name);
+		int flags=0; float duration=0;
+		// Only use sequences representable by the network and supported by the
+		// current single-animation timing implementation.
+		if (sequence<0 || sequence >= (1 << ANIMATION_SEQUENCE_BITS) || !g_pServerMdl44ModelInfo->SequenceInfo(model,sequence,flags,duration) || duration<=0) return -1;
+		return sequence;
+	}
+	return actor->LookupSequence(name);
+}
+
 void CBaseFlex::AddSceneEvent( CChoreoScene *scene, CChoreoEvent *event )
 {
 	if ( !scene || !event )
@@ -267,7 +286,7 @@ void CBaseFlex::AddSceneEvent( CChoreoScene *scene, CChoreoEvent *event )
 	{
 	case CChoreoEvent::SEQUENCE: 
 		{
-			info.m_nSequence = LookupSequence( event->GetParameters() );
+			info.m_nSequence = SceneSequenceIndex( this, event->GetParameters() );
 			info.m_iLayer = -1;
 
 			if (info.m_nSequence >= 0)
@@ -280,7 +299,7 @@ void CBaseFlex::AddSceneEvent( CChoreoScene *scene, CChoreoEvent *event )
 		break;
 	case CChoreoEvent::GESTURE:
 		{
-			info.m_nSequence = LookupSequence( event->GetParameters() );
+			info.m_nSequence = SceneSequenceIndex( this, event->GetParameters() );
 			info.m_iLayer = -1;
 
 			if (info.m_nSequence >= 0)

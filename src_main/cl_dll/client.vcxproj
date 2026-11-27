@@ -2836,6 +2836,10 @@
     <None Include="..\lib\public\tier0.lib" />
     <None Include="..\lib\public\game_controls.lib" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include=".\c_script_intro.cpp" />
+    <ClCompile Include="..\game_shared\script_intro_shared.cpp" />
+  </ItemGroup>
   <Import Project="..\HL2_Output.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

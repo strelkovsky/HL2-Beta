@@ -36,4 +36,6 @@ void RegisterUserMessages( void )
 	usermessages->Register( "RequestState", 0 );
 
 	usermessages->Register( "TerrainMod", -1 );
+	usermessages->Register( "CreditsMsg", 1 );
+	usermessages->Register( "LogoTimeMsg", 4 );
 }

@@ -155,10 +155,7 @@ int CAudioSourceMP3Cache::GetOutputData( void **pData, int samplePosition, int s
 
 CAudioMixer	*CAudioSourceMP3Cache::CreateMixer( void )
 {
-	CAudioMixer *pMixer = CreateMP3Mixer( CreateWaveDataMemory(*this) );
-	ReferenceAdd( pMixer );
-
-	return pMixer;
+	return CreateMP3Mixer( CreateWaveDataMemory(*this) );
 }
 
 
@@ -201,15 +198,8 @@ CAudioMixer	*CAudioSourceStreamMP3::CreateMixer( void )
 	IWaveData *pWaveData = CreateWaveDataStream(*this, static_cast<IWaveStreamSource *>(this), *g_pSndIO, m_pName, 0, m_fileSize );
 	if ( pWaveData )
 	{
-		CAudioMixer *pMixer = CreateMP3Mixer( pWaveData );
-		if ( pMixer )
-		{
-			ReferenceAdd( pMixer );
-			return pMixer;
-		}
-
-		// no mixer, delete the stream buffer/instance
-		delete pWaveData;
+		// CreateMP3Mixer takes ownership of pWaveData, including on failure.
+		return CreateMP3Mixer( pWaveData );
 	}
 
 	return NULL;

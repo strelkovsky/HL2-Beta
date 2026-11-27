@@ -1754,6 +1754,9 @@ public:
 
 	EHANDLE m_hPlayer;
 	EHANDLE m_hTarget;
+	string_t m_iszTargetAttachment;
+	int m_iAttachmentIndex;
+	bool m_bSnapToGoal;
 	CBaseEntity *m_pPath;
 	string_t m_sPath;
 	float m_flWait;
@@ -1777,6 +1780,9 @@ BEGIN_DATADESC( CTriggerCamera )
 
 	DEFINE_FIELD( CTriggerCamera, m_hPlayer, FIELD_EHANDLE ),
 	DEFINE_FIELD( CTriggerCamera, m_hTarget, FIELD_EHANDLE ),
+	DEFINE_KEYFIELD( CTriggerCamera, m_iszTargetAttachment, FIELD_STRING, "targetattachment" ),
+	DEFINE_FIELD( CTriggerCamera, m_iAttachmentIndex, FIELD_INTEGER ),
+	DEFINE_FIELD( CTriggerCamera, m_bSnapToGoal, FIELD_BOOLEAN ),
 	DEFINE_FIELD( CTriggerCamera, m_pPath, FIELD_CLASSPTR ),
 	DEFINE_FIELD( CTriggerCamera, m_sPath, FIELD_STRING ),
 	DEFINE_FIELD( CTriggerCamera, m_flWait, FIELD_FLOAT ),
@@ -1816,8 +1822,7 @@ void CTriggerCamera::Spawn( void )
 		m_deceleration = 500;
 	Relink();
 
-	// set manual mode on networking because these ents never change
-	NetworkStateManualMode( true );
+	// Viewcontrols can move and rotate while active; network their transforms.
 }
 
 
@@ -1916,10 +1921,14 @@ void CTriggerCamera::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYP
 		m_hTarget = GetNextTarget();
 	}
 
-	// Nothing to look at!
-	if ( m_hTarget == NULL )
+	// SE2007 viewcontrols may have no target and keep their map angles.
+	m_iAttachmentIndex = 0;
+	m_bSnapToGoal = HasSpawnFlags( SF_CAMERA_PLAYER_SNAP_TO );
+	if ( m_hTarget && m_iszTargetAttachment != NULL_STRING )
 	{
-		return;
+		CBaseAnimating *pAnimating = m_hTarget->GetBaseAnimating();
+		if ( pAnimating ) m_iAttachmentIndex = pAnimating->LookupAttachment( STRING( m_iszTargetAttachment ) );
+		if ( !m_iAttachmentIndex ) Warning( "point_viewcontrol %s: attachment %s not found\n", GetDebugName(), STRING( m_iszTargetAttachment ) );
 	}
 
 
@@ -1977,7 +1986,7 @@ void CTriggerCamera::FollowTarget( )
 	if (m_hPlayer == NULL)
 		return;
 
-	if (m_hTarget == NULL || !m_state || (!HasSpawnFlags(SF_CAMERA_PLAYER_INFINITE_WAIT) && m_flReturnTime < gpGlobals->curtime))
+	if (!m_state || (!HasSpawnFlags(SF_CAMERA_PLAYER_INFINITE_WAIT) && m_flReturnTime < gpGlobals->curtime))
 	{
 		if (m_hPlayer->IsAlive( ))
 		{
@@ -1992,11 +2001,18 @@ void CTriggerCamera::FollowTarget( )
 		return;
 	}
 
+	if ( !m_hTarget )
+	{
+		SetNextThink( gpGlobals->curtime );
+		Move();
+		return;
+	}
+	Vector target = m_hTarget->GetAbsOrigin();
+	CBaseAnimating *pAnimating = m_hTarget->GetBaseAnimating();
+	if ( m_iAttachmentIndex && pAnimating )
+		pAnimating->GetAttachment( m_iAttachmentIndex, target );
 	QAngle vecGoal;
-	VectorAngles( m_hTarget->GetLocalOrigin() - GetLocalOrigin(), vecGoal );
-	
-	// UNDONE: Is this still necessary?
-	vecGoal.x = -vecGoal.x;
+	VectorAngles( target - GetAbsOrigin(), vecGoal );
 
 	// UNDONE: Can't we just use UTIL_AngleDiff here?
 	QAngle angles = GetLocalAngles();
@@ -2008,8 +2024,9 @@ void CTriggerCamera::FollowTarget( )
 		angles.y += 360;
 
 	SetLocalAngles( angles );
-	if ( HasSpawnFlags( SF_CAMERA_PLAYER_SNAP_TO ) )
+	if ( m_bSnapToGoal )
 	{
+		m_bSnapToGoal = false;
 		SetLocalAngles( vecGoal );
 		SetLocalAngularVelocity( vec3_angle );
 		angles = vecGoal;

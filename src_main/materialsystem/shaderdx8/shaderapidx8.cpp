@@ -2688,7 +2688,10 @@ bool CShaderAPIDX8::DetermineHardwareCaps( )
 	m_Caps.m_nMaxAnisotropy = m_Caps.m_bSupportsAnisotropicFiltering ? caps.MaxAnisotropy : 0; 
 
 	m_Caps.m_SupportsCubeMaps = ( caps.TextureCaps & D3DPTEXTURECAPS_CUBEMAP ) ? true : false;
-	m_Caps.m_SupportsNonPow2Textures = ( caps.TextureCaps & D3DPTEXTURECAPS_NONPOW2CONDITIONAL ) ? true : false;
+	// POW2 clear means unrestricted NPOT support; CONDITIONAL is needed only
+	// when the device otherwise requires power-of-two textures.
+	m_Caps.m_SupportsNonPow2Textures = !( caps.TextureCaps & D3DPTEXTURECAPS_POW2 ) ||
+		( caps.TextureCaps & D3DPTEXTURECAPS_NONPOW2CONDITIONAL ) != 0;
 
 	// garymcthack - debug runtime doesn't let you use more than 96 constants.
 	// NEED TO TEST THIS ON DX9 TO SEE IF IT IS FIXED!

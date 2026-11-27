@@ -95,7 +95,7 @@ IMPLEMENT_SERVERCLASS_ST(CBaseAnimating, DT_BaseAnimating)
 
 	SendPropFloat	(SENDINFO(m_flModelScale),		8,	SPROP_ROUNDUP,	0.0f,	8.0f),
 	SendPropArray	(SendPropFloat(SENDINFO_ARRAY(m_flPoseParameter),	11, 0, 0.0f, 1.0f), m_flPoseParameter),
-	SendPropInt		(SENDINFO(m_nSequence),	9, 0),
+	SendPropInt		(SENDINFO(m_nSequence),	ANIMATION_SEQUENCE_BITS, 0),
 	SendPropFloat	(SENDINFO(m_flPlaybackRate),	8,	SPROP_ROUNDUP,	-4.0,	12.0f), // NOTE: if this isn't a power of 2 than "1.0" can't be encoded correctly
 	SendPropArray	(SendPropFloat(SENDINFO_ARRAY(m_flEncodedController), 11, SPROP_ROUNDDOWN, 0.0f, 1.0f ), m_flEncodedController),
 
@@ -259,7 +259,11 @@ int CBaseAnimating::LookupSequence( const char *label )
 		if ( model && g_pServerMdl44ModelInfo->HasModel( model ) )
 		{
 			const int nativeSequence = g_pServerMdl44ModelInfo->FindSequence( model, label );
-			Msg( "MDL 44 server lookup: %s / %s = %d\n", g_pServerMdl44ModelInfo->OriginalName( model ), label, nativeSequence );
+			int nativeFlags=0; float nativeDuration=0;
+			if ( g_pServerMdl44ModelInfo->SequenceInfo( model, nativeSequence, nativeFlags, nativeDuration ) )
+				Msg( "MDL 44 server lookup: %s / %s = %d, %.3f s, flags 0x%x\n", g_pServerMdl44ModelInfo->OriginalName( model ), label, nativeSequence, nativeDuration, nativeFlags );
+			else
+				Msg( "MDL 44 server lookup: %s / %s = %d (duration unavailable)\n", g_pServerMdl44ModelInfo->OriginalName( model ), label, nativeSequence );
 		}
 	}
 	Assert( GetModelPtr() );
@@ -438,6 +442,12 @@ bool CBaseAnimating::IsValidSequence( int iSequence )
 //=========================================================
 int CBaseAnimating::GetSequenceFlags( int iSequence )
 {
+	if ( g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel( GetModel() ) )
+	{
+		int flags=0; float duration=0;
+		if ( g_pServerMdl44ModelInfo->SequenceInfo( GetModel(), iSequence, flags, duration ) ) return flags;
+		return 0;
+	}
 	Assert( GetModelPtr() );
 	return ::GetSequenceFlags( GetModelPtr(), iSequence );
 }
@@ -446,6 +456,12 @@ int CBaseAnimating::GetSequenceFlags( int iSequence )
 //=========================================================
 float CBaseAnimating::SequenceDuration( int iSequence )
 {
+	if ( g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel( GetModel() ) )
+	{
+		int flags=0; float duration=0;
+		if ( g_pServerMdl44ModelInfo->SequenceInfo( GetModel(), iSequence, flags, duration ) ) return duration;
+		return 0.0f;
+	}
 //	Assert( iSequence != -1 );
 	studiohdr_t* pstudiohdr = GetModelPtr( );
 	if ( !pstudiohdr )
@@ -885,6 +901,8 @@ int CBaseAnimating::GetNumBones ( void )
 //-----------------------------------------------------------------------------
 int CBaseAnimating::LookupAttachment( const char *szName )
 {
+	if ( g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel( GetModel() ) )
+		return g_pServerMdl44ModelInfo->FindAttachment( GetModel(), szName ) + 1;
 	studiohdr_t *pStudioHdr = GetModelPtr( );
 	if (!pStudioHdr)
 	{
@@ -935,6 +953,14 @@ bool CBaseAnimating::GetAttachment ( int iAttachment, Vector &absOrigin, QAngle 
 //-----------------------------------------------------------------------------
 bool CBaseAnimating::GetAttachment ( int iAttachment, matrix3x4_t &attachmentToWorld )
 {
+	if ( g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel( GetModel() ) )
+	{
+		matrix3x4_t local; Studio44Layer layers[8];
+		const int layerCount = GetStudio44Layers( layers, 8 );
+		if ( !g_pServerMdl44ModelInfo->AttachmentTransform( GetModel(), iAttachment - 1, gpGlobals->curtime, layers, layerCount, &local[0][0] ) ) return false;
+		ConcatTransforms( EntityToWorldTransform(), local, attachmentToWorld );
+		return true;
+	}
 	studiohdr_t *pStudioHdr = GetModelPtr( );
 	if (!pStudioHdr)
 	{

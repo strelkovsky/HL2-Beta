@@ -17,6 +17,15 @@
 #include "mdl44_sequence.h"
 #include "mdl44_virtual.h"
 #include "mdl44_binding.h"
+#include "mdl44_pose.h"
+#include "lightcache.h"
+#include "istudiorender.h"
+#include "bspfile.h"
+extern IStudioRender *g_pStudioRender;
+extern ConVar mat_fullbright;
+extern int d_lightstylevalue[256];
+extern float g_lightmapScale;
+bool WorldLightToMaterialLight( dworldlight_t *, LightDesc_t & );
 #include <climits>
 
 // memdbgon must be the last include file.
@@ -58,12 +67,19 @@ static bool LoadVirtualGroup44(const std::string &name, Mdl44Virtual::Model &mod
 // Metadata is attached to the engine model object, not its mutable legacy name.
 // Kept separate until all users of studiohdr_t are migrated.
 static ConVar r_mdl44_modelcache("r_mdl44_modelcache", "1", 0, "Cache native v44 sequence metadata when models load.");
+struct Mdl44GroupSource
+{
+    bool attempted, valid;
+    std::vector<unsigned char> mdl, ani;
+    Mdl44GroupSource() : attempted(false), valid(false) {}
+};
 struct Mdl44CachedModel
 {
     model_t *identity;
     std::string originalName;
     Studio44::studiohdr_t header;
     Mdl44Virtual::Model virtualModel;
+    std::vector<Mdl44GroupSource> sources;
 };
 static std::vector<Mdl44CachedModel *> s_Mdl44Models;
 static Mdl44CachedModel *FindCached44(const model_t *identity)
@@ -72,6 +88,8 @@ static Mdl44CachedModel *FindCached44(const model_t *identity)
     return NULL;
 }
 bool Mdl44ModelCacheHas(const model_t *model) { return FindCached44(model)!=NULL; }
+bool Mdl44ModelCacheHeader(const model_t *model, Studio44::studiohdr_t &out)
+{ Mdl44CachedModel *cached=FindCached44(model); if(!cached) return false; out=cached->header; return true; }
 void Mdl44ModelCacheDetach(model_t *model)
 {
     for(size_t i=0;i<s_Mdl44Models.size();++i)
@@ -86,6 +104,7 @@ void Mdl44ModelCacheAttach(model_t *model, const char *name)
     std::vector<std::string> stack; std::vector<unsigned char> root;
     if(!ReadModelFile44(name,root) || !Studio44::ReadHeader(root.data(),root.size(),sizeof(cached->header),cached->header) ||
        !LoadVirtualGroup44(name,cached->virtualModel,stack)) { delete cached; return; }
+    cached->sources.resize(cached->virtualModel.Groups().size());
     s_Mdl44Models.push_back(cached);
     Msg("MDL 44 model cache: %s: %u groups, %u sequences\n",cached->originalName.c_str(),
         static_cast<unsigned>(cached->virtualModel.Groups().size()),
@@ -114,6 +133,14 @@ public:
         const Mdl44Virtual::Entry &entry=c->virtualModel.Sequences()[sequence];
         return c->virtualModel.Groups()[entry.group].sequences.sequences[entry.index].label.c_str();
     }
+    virtual bool SequenceInfo(const model_t *model, int sequence, int &flags, float &duration) const
+    {
+        Mdl44CachedModel *c=FindCached44(model); Mdl44Virtual::SequenceInfo info;
+        if(!c || sequence<0 || !c->virtualModel.GetSequenceInfo(static_cast<size_t>(sequence),info) || !info.hasDuration) return false;
+        flags=info.flags; duration=info.duration; return true;
+    }
+    virtual int FindAttachment(const model_t *model, const char *name) const;
+    virtual bool AttachmentTransform(const model_t *model, int attachment, float time, const Studio44Layer *layers, unsigned int layerCount, float *matrix3x4) const;
 };
 static Mdl44ModelInfo s_Mdl44ModelInfo;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44ModelInfo, IMdl44ModelInfo, MDL44_MODEL_INFO_VERSION, s_Mdl44ModelInfo);
@@ -372,6 +399,104 @@ static bool UploadStaticModel44( const Mdl44::StaticModel &model, Studio44MeshOw
     return handles.Count() != 0;
 }
 
+static Mdl44GroupSource *Mdl44GetGroupSource(Mdl44CachedModel *cached, size_t index)
+{
+    if(!cached || index>=cached->sources.size() || index>=cached->virtualModel.Groups().size()) return NULL;
+    Mdl44GroupSource &source=cached->sources[index];
+    if(!source.attempted)
+    {
+        source.attempted=true;
+        const Mdl44Virtual::Group &group=cached->virtualModel.Groups()[index];
+        Studio44::studiohdr_t header;
+        if(ReadModelFile44(group.name,source.mdl) && Studio44::ReadHeader(source.mdl.data(),source.mdl.size(),sizeof(header),header) &&
+           static_cast<uint32_t>(header.checksum)==group.skeleton.checksum)
+        {
+            source.valid=true;
+            if(header.szanimblocknameindex>0)
+            {
+                std::string aniName;
+                if(Mdl44Sequence::RelativeString(source.mdl.data(),static_cast<size_t>(header.length),0,header.szanimblocknameindex,aniName) && !aniName.empty())
+                    ReadModelFile44(aniName,source.ani);
+            }
+        }
+    }
+    return source.valid ? &source : NULL;
+}
+
+// Local attachment records follow the 92-byte SE2007 mstudioattachment_t layout.
+static bool Mdl44AttachmentRecord(Mdl44CachedModel *cached, int index, size_t &offset, Mdl44GroupSource *&source)
+{
+    if (!cached || index < 0 || index >= cached->header.numlocalattachments || cached->header.localattachmentindex < 0) return false;
+    source=Mdl44GetGroupSource(cached,0); if (!source) return false;
+    const size_t length=static_cast<size_t>(cached->header.length), start=static_cast<size_t>(cached->header.localattachmentindex);
+    if (length>source->mdl.size() || start>length || static_cast<size_t>(cached->header.numlocalattachments)>(length-start)/92) return false;
+    offset=start+static_cast<size_t>(index)*92;
+    return true;
+}
+int Mdl44ModelInfo::FindAttachment(const model_t *model, const char *name) const
+{
+    Mdl44CachedModel *cached=FindCached44(model); if (!cached || !name) return -1;
+    for(int i=0;i<cached->header.numlocalattachments;++i)
+    {
+        size_t at; Mdl44GroupSource *src;
+        if (!Mdl44AttachmentRecord(cached,i,at,src)) return -1;
+        std::string candidate;
+        if (Mdl44Sequence::RelativeString(src->mdl.data(),static_cast<size_t>(cached->header.length),at,
+                                         Mdl44Skeleton::ReadI32(src->mdl.data(),at),candidate) &&
+            Mdl44Sequence::EqualName(candidate,name)) return i;
+    }
+    return -1;
+}
+bool Mdl44ModelInfo::AttachmentTransform(const model_t *model, int attachment, float time, const Studio44Layer *layers, unsigned int layerCount, float *output) const
+{
+    Mdl44CachedModel *cached=FindCached44(model); size_t at; Mdl44GroupSource *src;
+    if (!output || !Mdl44AttachmentRecord(cached,attachment,at,src)) return false;
+    const Mdl44Skeleton::Skeleton &skeleton=cached->virtualModel.Groups()[0].skeleton;
+    int bone=Mdl44Skeleton::ReadI32(src->mdl.data(),at+8);
+    if (bone<0 || static_cast<size_t>(bone)>=skeleton.bones.size()) return false;
+    std::vector<Mdl44Animation::LocalPose> pose(skeleton.bones.size());
+    for(size_t i=0;i<skeleton.bones.size();++i) {
+        std::memcpy(pose[i].position,skeleton.bones[i].position,sizeof(pose[i].position));
+        std::memcpy(pose[i].rotation,skeleton.bones[i].quaternion,sizeof(pose[i].rotation));
+    }
+    // Match the same base idle currently used by the native G-Man renderer.
+    const Mdl44Virtual::Group &root=cached->virtualModel.Groups()[0];
+    if (!_stricmp(cached->originalName.c_str(),"models/gman_high.mdl")) {
+        const Mdl44Sequence::Sequence *seq=Mdl44Sequence::Find(root.sequences,"idle_subtle");
+        if (seq && seq->animations.size()==1 && seq->animations[0]<root.animations.clips.size()) {
+            const Mdl44Animation::Descriptor &clip=root.animations.clips[seq->animations[0]];
+            Mdl44Animation::Data data; std::vector<Mdl44Animation::LocalPose> sampled;
+            const int frame=std::isfinite(time) && time>0 ? static_cast<int>(std::fmod(double(time)*clip.fps,clip.frames)) : 0;
+            if (Mdl44Animation::Resolve(src->mdl.data(),src->mdl.size(),src->ani.empty()?NULL:src->ani.data(),src->ani.size(),root.animations,clip,data) &&
+                Mdl44Animation::SamplePose(data,clip,skeleton,frame,sampled)) pose.swap(sampled);
+        }
+    }
+    if (layers && layerCount<=8) for(unsigned int i=0;i<layerCount;++i) {
+        const Studio44Layer &layer=layers[i];
+        if(layer.sequence<0 || static_cast<size_t>(layer.sequence)>=cached->virtualModel.Sequences().size()) continue;
+        const Mdl44Virtual::Entry &entry=cached->virtualModel.Sequences()[layer.sequence];
+        const Mdl44Virtual::Group &group=cached->virtualModel.Groups()[entry.group];
+        Mdl44GroupSource *bytes=Mdl44GetGroupSource(cached,entry.group); if(!bytes) continue;
+        Mdl44Pose::Source source={bytes->mdl.data(),bytes->ani.empty()?NULL:bytes->ani.data(),bytes->mdl.size(),bytes->ani.size(),
+            &group.skeleton,&group.animations,&group.sequences,&group.masterBone};
+        Mdl44Pose::Accumulate(source,entry.index,layer.cycle,layer.weight,pose);
+    }
+    std::vector<int> chain;
+    for (int b=bone; b>=0; b=skeleton.bones[b].parent) {
+        if (static_cast<size_t>(b)>=skeleton.bones.size() || chain.size()>=skeleton.bones.size()) return false;
+        chain.push_back(b);
+    }
+    Mdl44Binding::Matrix world={}; world.m[0][0]=world.m[1][1]=world.m[2][2]=1;
+    while(!chain.empty()) {
+        const int current=chain.back(); chain.pop_back();
+        Mdl44Binding::Matrix local; if (!Mdl44Binding::LocalMatrix(pose[current],local)) return false;
+        world=Mdl44Binding::Multiply(world,local);
+    }
+    Mdl44Binding::Matrix local; std::memcpy(local.m,src->mdl.data()+at+12,sizeof(local.m));
+    for(int r=0;r<3;++r) for(int c=0;c<4;++c) if(!std::isfinite(local.m[r][c])) return false;
+    world=Mdl44Binding::Multiply(world,local); std::memcpy(output,world.m,sizeof(world.m)); return true;
+}
+
 static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin);
 static bool Mdl44RigidEntityBounds(const char *name, float *mins, float *maxs);
 static void Mdl44RigidEntityReleaseGpu();
@@ -379,18 +504,23 @@ static void Mdl44RigidEntityShutdown();
 
 // A deliberately isolated preview while sequence selection and VCD playback
 // are being implemented. It does not change the legacy model loader.
+static ConVar r_mdl44_gman_gesture("r_mdl44_gman_gesture", "", 0, "Preview a G-Man gesture by name (not VCD playback).");
+static ConVar r_mdl44_gman_gesture_cycle("r_mdl44_gman_gesture_cycle", "-1", 0, "G-Man gesture cycle 0..1; -1 plays a loop.");
 class Mdl44EntityPreview : public IMdl44EntityPreview
 {
 public:
-    Mdl44EntityPreview() : m_gpu(NULL), m_attempted(false), m_valid(false), m_logged(false) {}
+    Mdl44EntityPreview() : m_gpu(NULL), m_attempted(false), m_valid(false), m_logged(false), m_gestureAttempted(false), m_gestureValid(false) {}
     void ReleaseGpu() { delete m_gpu; m_gpu=NULL; }
     void Shutdown()
     {
         ReleaseGpu(); m_model=Mdl44::StudioModel(); m_mdl.clear(); m_ani.clear();
         m_skeleton=Mdl44Skeleton::Skeleton(); m_anims=Mdl44Animation::Animations(); m_sequences=Mdl44Sequence::Data();
-        m_attempted=false; m_valid=false; m_logged=false;
+        m_gestureMdl.clear(); m_gestureAni.clear(); m_gestureMap.clear(); m_gestureName.clear(); m_loggedSceneLayers.clear();
+        m_gestureSkeleton=Mdl44Skeleton::Skeleton(); m_gestureAnims=Mdl44Animation::Animations(); m_gestureSequences=Mdl44Sequence::Data();
+        m_attempted=false; m_valid=false; m_logged=false; m_gestureAttempted=false; m_gestureValid=false;
     }
-    virtual bool Draw(const char *name, const float *transform, unsigned int skin, float time)
+    virtual bool Draw(const model_t *identity, const char *name, const float *transform, unsigned int skin, float time,
+                      const Studio44Layer *layers, unsigned int layerCount)
     {
         if (!name || !transform) return false;
         if (_stricmp(name,"models/gman_high.mdl")) return Mdl44RigidEntityDraw(name,transform,skin);
@@ -415,8 +545,65 @@ public:
         std::vector<Mdl44Binding::Matrix> matrices;
         const int frame=std::isfinite(time) && time>0 ? static_cast<int>(std::fmod(double(time)*clip.fps,clip.frames)) : 0;
         if (!Mdl44Animation::Resolve(m_mdl.data(),m_mdl.size(),m_ani.empty()?NULL:m_ani.data(),m_ani.size(),m_anims,clip,data) ||
-            !Mdl44Animation::SamplePose(data,clip,m_skeleton,frame,pose) ||
-            !Mdl44Binding::BuildSkinMatrices(m_skeleton,pose,matrices) || matrices.empty()) return false;
+            !Mdl44Animation::SamplePose(data,clip,m_skeleton,frame,pose)) return false;
+        const char *gesture=r_mdl44_gman_gesture.GetString();
+        if (gesture && *gesture)
+        {
+            if (!m_gestureAttempted)
+            {
+                m_gestureAttempted=true;
+                m_gestureValid=ReadModelFile44("models/Gman_gestures.mdl",m_gestureMdl) &&
+                    ReadModelFile44("models/Gman_gestures.ani",m_gestureAni) &&
+                    Mdl44Skeleton::Parse(m_gestureMdl.data(),m_gestureMdl.size(),m_gestureSkeleton) &&
+                    Mdl44Animation::Parse(m_gestureMdl.data(),m_gestureMdl.size(),m_gestureAnims) &&
+                    Mdl44Sequence::Parse(m_gestureMdl.data(),m_gestureMdl.size(),m_gestureSequences) &&
+                    Mdl44Sequence::MapBones(m_skeleton,m_gestureSkeleton,m_gestureMap);
+            }
+            const Mdl44Sequence::Sequence *g=m_gestureValid ? Mdl44Sequence::Find(m_gestureSequences,gesture) : NULL;
+            bool ok=false;
+            if (g)
+            {
+                float cycle=r_mdl44_gman_gesture_cycle.GetFloat();
+                if(cycle<0 && g->animations.size()==1 && g->animations[0]<m_gestureAnims.clips.size())
+                {
+                    const Mdl44Animation::Descriptor &gestureClip=m_gestureAnims.clips[g->animations[0]];
+                    const float duration=gestureClip.fps>0 ? (gestureClip.frames-1)/gestureClip.fps : 0;
+                    cycle=duration>0 && std::isfinite(time) && time>0 ? static_cast<float>(std::fmod(time/duration,1.0)) : 0;
+                }
+                Mdl44Pose::Source source={m_gestureMdl.data(),m_gestureAni.data(),m_gestureMdl.size(),m_gestureAni.size(),
+                    &m_gestureSkeleton,&m_gestureAnims,&m_gestureSequences,&m_gestureMap};
+                ok=Mdl44Pose::Accumulate(source,static_cast<size_t>(g-&m_gestureSequences.sequences[0]),cycle,1.0f,pose);
+            }
+            if (m_gestureName!=gesture)
+            {
+                if (ok) Msg("MDL 44 G-Man gesture preview: %s\n",gesture);
+                else Warning("MDL 44 G-Man gesture preview: cannot evaluate %s\n",gesture);
+                m_gestureName=gesture;
+            }
+        }
+        else m_gestureName.clear();
+        // Networked overlays use the same virtual sequence table as the server.
+        Mdl44CachedModel *cached=FindCached44(identity);
+        if(cached && layers && layerCount<=8)
+        {
+            for(unsigned int i=0;i<layerCount;++i)
+            {
+                const Studio44Layer &layer=layers[i];
+                if(layer.sequence<0 || static_cast<size_t>(layer.sequence)>=cached->virtualModel.Sequences().size()) continue;
+                const Mdl44Virtual::Entry &entry=cached->virtualModel.Sequences()[layer.sequence];
+                const Mdl44Virtual::Group &group=cached->virtualModel.Groups()[entry.group];
+                Mdl44GroupSource *bytes=Mdl44GetGroupSource(cached,entry.group);
+                if(!bytes) continue;
+                Mdl44Pose::Source source={bytes->mdl.data(),bytes->ani.empty()?NULL:bytes->ani.data(),bytes->mdl.size(),bytes->ani.size(),
+                    &group.skeleton,&group.animations,&group.sequences,&group.masterBone};
+                if(Mdl44Pose::Accumulate(source,entry.index,layer.cycle,layer.weight,pose))
+                {
+                    bool logged=false; for(size_t j=0;j<m_loggedSceneLayers.size();++j) if(m_loggedSceneLayers[j]==layer.sequence) logged=true;
+                    if(!logged) { Msg("MDL 44 scene layer: %s\n",group.sequences.sequences[entry.index].label.c_str()); m_loggedSceneLayers.push_back(layer.sequence); }
+                }
+            }
+        }
+        if (!Mdl44Binding::BuildSkinMatrices(m_skeleton,pose,matrices) || matrices.empty()) return false;
         if (!m_gpu)
         {
             CreateInterfaceFn factory=Sys_GetFactory("studiorender.dll");
@@ -425,6 +612,38 @@ public:
             Studio44MeshOwner *gpu=new Studio44MeshOwner(renderer); size_t skipped=0;
             if (!UploadStaticModel44(m_model,*gpu,skipped,true) || skipped) { delete gpu; return false; }
             m_gpu=gpu;
+        }
+        // The native preview bypasses CModelRender::StudioSetupLighting, so
+        // set the same ambient cube and local world lights before drawing.
+        if (cached && g_pStudioRender && materialSystemInterface)
+        {
+            Vector position;
+            for(int r=0;r<3;++r)
+                position[r]=transform[r*4+3] + transform[r*4]*cached->header.illumposition[0] +
+                    transform[r*4+1]*cached->header.illumposition[1] + transform[r*4+2]*cached->header.illumposition[2];
+            LightingState_t lighting;
+            ITexture *cubemap=LightcacheGet(position,lighting);
+            if (cubemap) materialSystemInterface->BindLocalCubemap(cubemap);
+            if (mat_fullbright.GetInt()==1)
+            {
+                Vector white[6]; for(int i=0;i<6;++i) white[i].Init(1,1,1);
+                g_pStudioRender->SetAmbientLightColors(white,white);
+                g_pStudioRender->SetLocalLights(0,NULL);
+            }
+            else
+            {
+                g_pStudioRender->SetAmbientLightColors(lighting.r_boxcolor,lighting.totalboxcolor);
+                LightDesc_t lights[MAXLOCALLIGHTS]; int count=0;
+                for(int i=0;i<lighting.numlights && count<MAXLOCALLIGHTS;++i)
+                    if(WorldLightToMaterialLight(lighting.locallight[i],lights[count]))
+                    {
+                        const int style=lighting.locallight[i]->style;
+                        const float scale=(style>=0 && style<256) ? g_lightmapScale * d_lightstylevalue[style] / 264.0f : 1.0f;
+                        for(int j=0;j<3;++j) lights[count].m_Color[j]*=scale;
+                        ++count;
+                    }
+                g_pStudioRender->SetLocalLights(count,lights);
+            }
         }
         if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()))) return false;
         if (!m_logged)
@@ -445,6 +664,14 @@ private:
     Mdl44Skeleton::Skeleton m_skeleton;
     Mdl44Animation::Animations m_anims;
     Mdl44Sequence::Data m_sequences;
+    bool m_gestureAttempted, m_gestureValid;
+    std::vector<unsigned char> m_gestureMdl, m_gestureAni;
+    Mdl44Skeleton::Skeleton m_gestureSkeleton;
+    Mdl44Animation::Animations m_gestureAnims;
+    Mdl44Sequence::Data m_gestureSequences;
+    std::vector<int> m_gestureMap;
+    std::string m_gestureName;
+    std::vector<int> m_loggedSceneLayers;
 };
 static Mdl44EntityPreview s_Mdl44EntityPreview;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44EntityPreview, IMdl44EntityPreview, MDL44_ENTITY_PREVIEW_VERSION, s_Mdl44EntityPreview);

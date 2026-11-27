@@ -7,6 +7,7 @@
 
 #include "interface.h"
 #include "milesbase.h"
+#include "tier0/dbg.h"
 #include "vaudio/ivaudio.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -30,6 +31,7 @@ public:
 	virtual int GetOutputBits();
 	virtual int GetOutputRate();
 	virtual int GetOutputChannels();
+	bool IsValid() const { return m_decoder.IsActive(); }
 
 private:
 	ASISTRUCT		m_decoder;
@@ -91,12 +93,19 @@ public:
 
 	IAudioStream *CreateMP3StreamDecoder( IAudioStreamEvent *pEventHandler )
 	{
-		return new CMilesMP3( pEventHandler );
+		CMilesMP3 *pDecoder = new CMilesMP3( pEventHandler );
+		if ( !pDecoder->IsValid() )
+		{
+			Warning( "Miles MP3 decoder initialization failed (check bin/mssmp3.asi).\n" );
+			delete pDecoder;
+			return NULL;
+		}
+		return pDecoder;
 	}
 
 	void DestroyMP3StreamDecoder( IAudioStream *pDecoder )
 	{
-		delete pDecoder;
+		delete static_cast<CMilesMP3 *>( pDecoder );
 	}
 };
 

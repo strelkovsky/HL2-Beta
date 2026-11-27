@@ -62,6 +62,7 @@ public:
 };
 
 
+struct Studio44Layer;
 class C_BaseAnimating : public C_BaseEntity
 {
 public:
@@ -103,6 +104,7 @@ public:
 	virtual void CalculateIKLocks( float currentTime );
 	virtual int DrawModel( int flags );
 	virtual int InternalDrawModel( int flags );
+	virtual int GetStudio44Layers( Studio44Layer *layers, int capacity ) const { return 0; }
 	
 	//
 	virtual void	ControlMouth();

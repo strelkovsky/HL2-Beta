@@ -28,6 +28,7 @@ public:
 	
 	virtual void Mix( IAudioDevice *pDevice, channel_t *pChannel, void *pData, int outputOffset, int inputOffset, fixedint fracRate, int outCount, int timecompress );
 	virtual int	 GetOutputData( void **pData, int sampleCount, char copyBuf[AUDIOSOURCE_COPYBUF_SIZE] );
+	bool IsValid() const { return m_pStream != NULL; }
 
 	// need to override this to fixup blocks
 	void SetSampleStart( int newPosition );
@@ -57,13 +58,16 @@ CAudioMixerWaveMP3::CAudioMixerWaveMP3( IWaveData *data ) : CAudioMixerWave( dat
 	m_offset = 0;
 	m_delaySamples = 0;
 	m_pStream = vaudio->CreateMP3StreamDecoder( static_cast<IAudioStreamEvent *>(this) );
-	m_channelCount = m_pStream->GetOutputChannels();
-	Assert( m_pStream->GetOutputRate() == m_pData->Source().SampleRate() );
+	m_channelCount = m_pStream ? m_pStream->GetOutputChannels() : 0;
+	if ( m_pStream )
+		Assert( m_pStream->GetOutputRate() == m_pData->Source().SampleRate() );
 }
 
 
 CAudioMixerWaveMP3::~CAudioMixerWaveMP3( void )
 {
+	if ( m_pStream )
+		vaudio->DestroyMP3StreamDecoder( m_pStream );
 }
 
 
@@ -183,5 +187,15 @@ void CAudioMixerWaveMP3::SetStartupDelaySamples( int delaySamples )
 //-----------------------------------------------------------------------------
 CAudioMixer *CreateMP3Mixer( IWaveData *data )
 {
-	return new CAudioMixerWaveMP3( data );
+	if ( !data )
+		return NULL;
+	CAudioMixerWaveMP3 *pMixer = new CAudioMixerWaveMP3( data );
+	// The mixer owns data and its destructor removes this reference.
+	pMixer->GetSource()->ReferenceAdd( pMixer );
+	if ( !pMixer->IsValid() )
+	{
+		delete pMixer;
+		return NULL;
+	}
+	return pMixer;
 }

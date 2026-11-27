@@ -11,6 +11,8 @@
 #pragma once
 #endif
 
+// Both base animation and overlay layers must use the same sequence range.
+#define ANIMATION_SEQUENCE_BITS	12
 #define ANIMATION_CYCLE_BITS		15
 #define ANIMATION_CYCLE_MINFRAC		(1.0f / (1<<ANIMATION_CYCLE_BITS))
 

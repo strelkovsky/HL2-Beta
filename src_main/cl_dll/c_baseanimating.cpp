@@ -1225,7 +1225,9 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 		{
 			matrix3x4_t transform;
 			AngleMatrix( GetRenderAngles(), GetRenderOrigin(), transform );
-			if ( g_pMdl44EntityPreview->Draw( name, &transform[0][0], m_nSkin, gpGlobals->curtime ) )
+			Studio44Layer layers[8];
+			const int layerCount = GetStudio44Layers( layers, 8 );
+			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, layers, layerCount ) )
 				return 1;
 		}
 	}
@@ -1735,7 +1737,10 @@ bool C_BaseAnimating::IsRagdoll() const
 //-----------------------------------------------------------------------------
 void C_BaseAnimating::GetRenderBounds( Vector& theMins, Vector& theMaxs )
 {
-	if ( !IsRagdoll() && r_mdl44_rigid_entities.GetBool() && g_pMdl44EntityPreview )
+	// Native cached models use IVModelInfo's v44 bounds below. This fallback
+	// remains for the opt-out mode where the native model cache is disabled.
+	if ( !IsRagdoll() && r_mdl44_rigid_entities.GetBool() && g_pMdl44EntityPreview &&
+		!( g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel( GetModel() ) ) )
 	{
 		const char *name = Mdl44FallbackOriginalName( this );
 		if ( name && g_pMdl44EntityPreview->RigidBounds( name, &theMins.x, &theMaxs.x ) ) return;

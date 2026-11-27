@@ -10,6 +10,10 @@
 #include "bone_setup.h"
 #include "tier0/vprof.h"
 #include "engine/IVDebugOverlay.h"
+#include "imdl44entitypreview.h"
+#include "imdl44modelinfo.h"
+
+extern IMdl44ModelInfo *g_pClientMdl44ModelInfo;
 
 
 C_BaseAnimatingOverlay::C_BaseAnimatingOverlay()
@@ -110,8 +114,31 @@ END_PREDICTION_DATA()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+int C_BaseAnimatingOverlay::GetStudio44Layers( Studio44Layer *layers, int capacity ) const
+{
+	if (!layers || capacity<=0) return 0;
+	int count=0;
+	for (int order=0;order<MAX_OVERLAYS && count<capacity;++order)
+		for (int i=0;i<MAX_OVERLAYS && count<capacity;++i)
+			if (m_Layer[i].nOrder==order && m_Layer[i].flWeight>0)
+			{
+				layers[count].sequence=m_Layer[i].nSequence;
+				layers[count].cycle=clamp(m_Layer[i].flCycle,0.0f,1.0f);
+				layers[count].weight=clamp(m_Layer[i].flWeight,0.0f,1.0f);
+				++count;
+			}
+	return count;
+}
+
 void C_BaseAnimatingOverlay::StandardBlendingRules( Vector pos[], Quaternion q[], float currentTime, int boneMask )
 {
+	// v44 overlays are evaluated by the native renderer; the fallback v37
+	// studio header cannot be indexed by the v44 sequence numbers.
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel()))
+	{
+		BaseClass::StandardBlendingRules(pos,q,currentTime,boneMask);
+		return;
+	}
 	VPROF( "C_BaseAnimatingOverlay::StandardBlendingRules" );
 
 	studiohdr_t *hdr = GetModelPtr();

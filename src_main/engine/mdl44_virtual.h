@@ -7,6 +7,7 @@
 namespace Mdl44Virtual
 {
     struct Entry { size_t group, index; };
+    struct SequenceInfo { int flags; float duration; bool hasDuration; };
     struct Group
     {
         std::string name;
@@ -75,6 +76,23 @@ namespace Mdl44Virtual
         const std::vector<Group> &Groups() const { return m_groups; }
         const std::vector<Entry> &Sequences() const { return m_sequences; }
         const std::vector<Entry> &Animations() const { return m_animations; }
+        bool GetSequenceInfo(size_t index, SequenceInfo &out) const
+        {
+            if(index>=m_sequences.size()) return false;
+            const Entry &entry=m_sequences[index];
+            if(entry.group>=m_groups.size() || entry.index>=m_groups[entry.group].sequences.sequences.size()) return false;
+            const Group &group=m_groups[entry.group];
+            const Mdl44Sequence::Sequence &seq=group.sequences.sequences[entry.index];
+            SequenceInfo info={seq.flags,0.0f,false};
+            // SE2007 duration requires pose parameters for multi-animation blends.
+            if(seq.animations.size()==1 && seq.animations[0]<group.animations.clips.size())
+            {
+                const Mdl44Animation::Descriptor &clip=group.animations.clips[seq.animations[0]];
+                info.duration=clip.fps>0 && clip.frames>1 ? (clip.frames-1)/clip.fps : 0.0f;
+                info.hasDuration=true;
+            }
+            out=info; return true;
+        }
         const Entry *FindSequence(const char *name) const
         {
             if(!name) return NULL;

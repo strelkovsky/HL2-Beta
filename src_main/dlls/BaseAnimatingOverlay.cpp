@@ -5,6 +5,9 @@
 #include "bone_setup.h"
 #include "ai_basenpc.h"
 #include "npcevent.h"
+#include "imdl44modelinfo.h"
+
+extern IMdl44ModelInfo *g_pServerMdl44ModelInfo;
 
 
 
@@ -68,10 +71,27 @@ BEGIN_PREDICTION_DATA( CBaseAnimatingOverlay )
 END_PREDICTION_DATA()
 
 
-#define SEQUENCE_BITS		9
+// MDL 44 virtual models can exceed the old 512-sequence limit.
+#define SEQUENCE_BITS		ANIMATION_SEQUENCE_BITS
 #define PLAYBACKRATE_BITS	15
 #define ORDER_BITS			4
 #define WEIGHT_BITS			8
+
+int CBaseAnimatingOverlay::GetStudio44Layers( Studio44Layer *layers, int capacity ) const
+{
+	if ( !layers || capacity <= 0 ) return 0;
+	int count = 0;
+	for ( int order=0; order<MAX_OVERLAYS && count<capacity; ++order )
+		for ( int i=0; i<MAX_OVERLAYS && count<capacity; ++i )
+			if ( m_AnimOverlay[i].m_nOrder==order && m_AnimOverlay[i].m_flWeight>0 )
+			{
+				layers[count].sequence=m_AnimOverlay[i].m_nSequence;
+				layers[count].cycle=clamp(m_AnimOverlay[i].m_flCycle,0.0f,1.0f);
+				layers[count].weight=clamp(m_AnimOverlay[i].m_flWeight,0.0f,1.0f);
+				++count;
+			}
+	return count;
+}
 
 /*
 BEGIN_SEND_TABLE_NOBASE(CAnimationLayer, DT_Animationlayer)
@@ -320,6 +340,9 @@ void CBaseAnimatingOverlay::DispatchAnimEvents ( CBaseAnimating *eventHandler )
 
 void CAnimationLayer::DispatchAnimEvents( CBaseAnimating *eventHandler, CBaseAnimating *pOwner )
 {
+	// v44 animation events have not yet been ported; never index a v37 header
+	// with a v44 virtual sequence number.
+	if ( g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel( pOwner->GetModel() ) ) return;
   	animevent_t	event;
 
 	studiohdr_t *pstudiohdr = pOwner->GetModelPtr( );
@@ -390,7 +413,8 @@ void CBaseAnimatingOverlay::GetSkeleton( Vector pos[], Quaternion q[], int boneM
 	{
 		for (int i = 0; i < MAX_OVERLAYS; i++)
 		{
-			if (m_AnimOverlay[i].m_flWeight > 0)
+			if (m_AnimOverlay[i].m_flWeight > 0 &&
+				!(g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())))
 			{
 				// UNDONE: Is it correct to use overlay weight for IK too?
 				AccumulatePose( pStudioHdr, m_pIk, pos, q, m_AnimOverlay[i].m_nSequence, m_AnimOverlay[i].m_flCycle, GetPoseParameterArray(), boneMask, m_AnimOverlay[i].m_flWeight );

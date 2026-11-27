@@ -11,6 +11,7 @@
 #endif
 
 #include "baseentity.h"
+#include "imdl44entitypreview.h"
 
 struct animevent_t;
 struct studiocache_t;
@@ -128,6 +129,8 @@ public:
 	float  GetExitPhase( int iSequence );
 	
 	void GetEyeballs( Vector &origin, QAngle &angles ); // ?? remove ??
+
+	virtual int GetStudio44Layers( Studio44Layer *layers, int capacity ) const { return 0; }
 
 	int LookupAttachment( const char *szName );
 

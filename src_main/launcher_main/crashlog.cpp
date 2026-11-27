@@ -36,10 +36,27 @@ LONG WINAPI LogUnhandledException(EXCEPTION_POINTERS* exception)
     if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2)
         LogLine(file, "Access: %s at %p\r\n", record->ExceptionInformation[0] == 1 ? "write" : record->ExceptionInformation[0] == 8 ? "execute" : "read", (void*)record->ExceptionInformation[1]);
     HANDLE process = GetCurrentProcess();
+    LogLine(file, "Registers: EIP=%08lX ESP=%08lX EBP=%08lX\r\n", exception->ContextRecord->Eip,
+        exception->ContextRecord->Esp, exception->ContextRecord->Ebp);
     SymSetOptions(SYMOPT_UNDNAME | SYMOPT_LOAD_LINES | SYMOPT_DEFERRED_LOADS);
     if (SymInitialize(process, NULL, TRUE))
     {
         CONTEXT context = *exception->ContextRecord;
+        // An indirect call through NULL leaves the caller return address at
+        // the top of the x86 stack. Start unwinding there rather than skipping
+        // the entire trace because the faulting instruction pointer is zero.
+        if (context.Eip == 0 && record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+            record->NumberParameters >= 2 && record->ExceptionInformation[0] == 8)
+        {
+            DWORD returnAddress = 0; SIZE_T bytesRead = 0;
+            if (ReadProcessMemory(process, (const void*)context.Esp, &returnAddress, sizeof(returnAddress), &bytesRead) &&
+                bytesRead == sizeof(returnAddress) && returnAddress != 0 && context.Esp <= 0xFFFFFFFFu - sizeof(DWORD))
+            {
+                LogLine(file, "Null-call return address: %08lX\r\n", returnAddress);
+                context.Eip = returnAddress;
+                context.Esp += sizeof(DWORD);
+            }
+        }
         STACKFRAME64 frame = {};
         frame.AddrPC.Offset = context.Eip; frame.AddrPC.Mode = AddrModeFlat;
         frame.AddrFrame.Offset = context.Ebp; frame.AddrFrame.Mode = AddrModeFlat;

@@ -131,3 +131,54 @@ void CMessage::Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useT
 
 	InputShowMessage( inputdata );
 }
+
+
+// Retail maps use env_credits to start the opening logo and credit rolls.
+// The logo timing and messages follow SE2007; credit rolls can be added to
+// the client independently of this entity.
+class CCredits : public CPointEntity
+{
+    DECLARE_CLASS( CCredits, CPointEntity );
+public:
+    DECLARE_DATADESC();
+    CCredits() : m_flLogoLength(0) {}
+    void Spawn() { SetSolid(SOLID_NONE); SetMoveType(MOVETYPE_NONE); }
+    void InputShowLogo( inputdata_t &inputdata );
+    void InputSetLogoLength( inputdata_t &inputdata ) { m_flLogoLength=inputdata.value.Float(); }
+    void InputRollCredits( inputdata_t &inputdata );
+    void InputRollOutroCredits( inputdata_t &inputdata );
+private:
+    float m_flLogoLength;
+    COutputEvent m_OnCreditsDone;
+};
+LINK_ENTITY_TO_CLASS( env_credits, CCredits );
+BEGIN_DATADESC( CCredits )
+    DEFINE_FIELD( CCredits, m_flLogoLength, FIELD_FLOAT ),
+    DEFINE_OUTPUT( CCredits, m_OnCreditsDone, "OnCreditsDone" ),
+    DEFINE_INPUTFUNC( CCredits, FIELD_VOID, "ShowLogo", InputShowLogo ),
+    DEFINE_INPUTFUNC( CCredits, FIELD_FLOAT, "SetLogoLength", InputSetLogoLength ),
+    DEFINE_INPUTFUNC( CCredits, FIELD_VOID, "RollCredits", InputRollCredits ),
+    DEFINE_INPUTFUNC( CCredits, FIELD_VOID, "RollOutroCredits", InputRollOutroCredits ),
+END_DATADESC()
+void CCredits::InputShowLogo( inputdata_t &inputdata )
+{
+    CBasePlayer *player=UTIL_PlayerByIndex(1); if(!player) return;
+    CSingleUserRecipientFilter recipient(player); recipient.MakeReliable();
+    if (m_flLogoLength > 0) {
+        UserMessageBegin(recipient,"LogoTimeMsg"); WRITE_FLOAT(m_flLogoLength); MessageEnd();
+    } else {
+        UserMessageBegin(recipient,"CreditsMsg"); WRITE_BYTE(1); MessageEnd();
+    }
+}
+void CCredits::InputRollCredits( inputdata_t &inputdata )
+{
+    CBasePlayer *player=UTIL_PlayerByIndex(1); if(!player) return;
+    CSingleUserRecipientFilter recipient(player); recipient.MakeReliable();
+    UserMessageBegin(recipient,"CreditsMsg"); WRITE_BYTE(2); MessageEnd();
+}
+void CCredits::InputRollOutroCredits( inputdata_t &inputdata )
+{
+    CBasePlayer *player=UTIL_PlayerByIndex(1); if(!player) return;
+    CSingleUserRecipientFilter recipient(player); recipient.MakeReliable();
+    UserMessageBegin(recipient,"CreditsMsg"); WRITE_BYTE(3); MessageEnd();
+}

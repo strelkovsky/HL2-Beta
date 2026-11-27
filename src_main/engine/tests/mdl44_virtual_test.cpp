@@ -1,14 +1,16 @@
 // mdl44_virtual_test <gman_high.mdl> <male_shared.mdl> <breen_anims.mdl> <gman_gestures.mdl>
 #include "../mdl44_virtual.h"
+#include "../../game_shared/shareddefs.h"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
 #include <iterator>
+#include <limits>
 static std::vector<unsigned char> Read(const char *p)
 { std::ifstream f(p,std::ios::binary); return std::vector<unsigned char>((std::istreambuf_iterator<char>(f)),std::istreambuf_iterator<char>()); }
 int main(int argc,char **argv)
 {
-    if(argc!=5) return 2;
+    if(argc!=5 && argc!=10) return 2;
     Mdl44Virtual::Model model;
     // Header decoding also accepts unaligned buffers and rejects truncation.
     std::vector<unsigned char> first=Read(argv[1]), unaligned(first.size()+1);
@@ -18,7 +20,17 @@ int main(int argc,char **argv)
     assert(header.version==44 && header.numbones==70 && header.numlocalseq==7);
     assert(!Studio44::ReadHeader(unaligned.data()+1,100,sizeof(header),header));
     assert(header.version==44 && header.numbones==70);
-    for(int i=1;i<argc;++i)
+    float mins[3],maxs[3];
+    assert(Studio44::Bounds(header,true,mins,maxs));
+    Studio44::studiohdr_t view=header;
+    for(int i=0;i<3;++i) { view.view_bbmin[i]=-10.0f-i; view.view_bbmax[i]=20.0f+i; }
+    assert(Studio44::Bounds(view,true,mins,maxs));
+    for(int i=0;i<3;++i) { assert(mins[i]==view.view_bbmin[i]); assert(maxs[i]==view.view_bbmax[i]); }
+    Studio44::studiohdr_t invalid=view; invalid.view_bbmax[0]=invalid.view_bbmin[0]-1.0f;
+    assert(!Studio44::Bounds(invalid,true,mins,maxs));
+    invalid=header; invalid.illumposition[0]=std::numeric_limits<float>::quiet_NaN();
+    assert(!Studio44::ValidVector(invalid.illumposition));
+    for(int i=1;i<5;++i)
     {
         std::vector<unsigned char> bytes=Read(argv[i]); Mdl44Skeleton::Skeleton skeleton;
         Mdl44Animation::Animations anims; Mdl44Sequence::Data seqs;
@@ -34,10 +46,30 @@ int main(int argc,char **argv)
     const Mdl44Virtual::Entry *head=model.FindSequence("HG_headback");
     const Mdl44Virtual::Entry *lean=model.FindSequence("P_leanback");
     assert(idle && idle->group==0 && head && head->group==3 && lean && lean->group==3);
+    Mdl44Virtual::SequenceInfo info;
+    assert(model.GetSequenceInfo(size_t(head-&model.Sequences()[0]),info) && info.hasDuration);
+    assert(std::fabs(info.duration-2.3f)<0.001f && info.flags==0);
+    assert(!model.GetSequenceInfo(model.Sequences().size(),info));
     const Mdl44Virtual::Group &gesture=model.Groups()[3];
     assert(gesture.masterBone.size()==56 && gesture.boneMap.size()==70);
     for(size_t i=0;i<gesture.masterBone.size();++i) assert(gesture.masterBone[i]>=0 && gesture.boneMap[gesture.masterBone[i]]==int(i));
     assert(!model.FindSequence("not_a_sequence"));
     std::printf("%u groups, %u virtual sequences, %u animations; G-Man gestures mapped to group %u\n",
         unsigned(model.Groups().size()),unsigned(model.Sequences().size()),unsigned(model.Animations().size()),unsigned(head->group));
+    if(argc==10)
+    {
+        Mdl44Virtual::Model citizen;
+        for(int i=5;i<10;++i)
+        {
+            std::vector<unsigned char> bytes=Read(argv[i]); Mdl44Skeleton::Skeleton sk;
+            Mdl44Animation::Animations an; Mdl44Sequence::Data se;
+            assert(Mdl44Skeleton::Parse(bytes.data(),bytes.size(),sk));
+            assert(Mdl44Animation::Parse(bytes.data(),bytes.size(),an));
+            assert(Mdl44Sequence::Parse(bytes.data(),bytes.size(),se));
+            assert(citizen.Append(argv[i],sk,an,se));
+        }
+        assert(citizen.Sequences().size()==812);
+        assert(citizen.Sequences().size()>512 && citizen.Sequences().size()<=size_t(1<<ANIMATION_SEQUENCE_BITS));
+        std::printf("citizen: %u virtual sequences fit the %d-bit network field\n",unsigned(citizen.Sequences().size()),ANIMATION_SEQUENCE_BITS);
+    }
 }

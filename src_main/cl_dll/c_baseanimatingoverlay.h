@@ -17,6 +17,7 @@ public:
 
 	// model specific
 	virtual	void	StandardBlendingRules( Vector pos[], Quaternion q[], float currentTime, int boneMask );
+	virtual int GetStudio44Layers( Studio44Layer *layers, int capacity ) const;
 
 	enum
 	{

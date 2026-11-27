@@ -3206,6 +3206,19 @@ void CModelLoader::Studio_LoadModel( model_t *mod, void *buffer )
 		}
 	}
 
+	// The fallback header is v37, but the model's spatial data belongs to v44.
+	Studio44::studiohdr_t boundsHeader;
+	float mins[3], maxs[3];
+	if ( Mdl44ModelCacheHeader( mod, boundsHeader ) && Studio44::Bounds( boundsHeader, false, mins, maxs ) )
+	{
+		mod->radius = 0;
+		for ( int i=0; i<3; ++i )
+		{
+			mod->mins[i]=mins[i]; mod->maxs[i]=maxs[i];
+			if ( fabs(mins[i]) > mod->radius ) mod->radius = fabs(mins[i]);
+			if ( fabs(maxs[i]) > mod->radius ) mod->radius = fabs(maxs[i]);
+		}
+	}
 	Studio_LoadStaticMeshes( mod );
 }
 

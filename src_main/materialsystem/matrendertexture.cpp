@@ -67,6 +67,15 @@ ITexture *CreateFullFrameFBTexture( )
 		width, height, MaterialSystem()->GetBackBufferFormat(), false );
 }
 
+// Separate full-frame input for the primary intro camera.
+ITexture *CreateIntroFBTexture()
+{
+	int width, height;
+	MaterialSystem()->GetBackBufferDimensions( width, height );
+	return MaterialSystem()->CreateNamedRenderTargetTexture( "_rt_IntroFB",
+		width, height, MaterialSystem()->GetBackBufferFormat(), false );
+}
+
 // hook into engine's mat_picmip convar
 ConVar mat_picmip( "mat_picmip", "0" );
 
@@ -143,6 +152,7 @@ RenderTextureDescriptor_t rtDescriptors[] =
 {
 	{ "_rt_PowerOfTwoFB",		CreatePowerOfTwoFBTexture },
 	{ "_rt_FullFrameFB",		CreateFullFrameFBTexture },
+	{ "_rt_IntroFB",			CreateIntroFBTexture },
 	{ "_rt_WaterReflection",	CreateWaterReflectionTexture },
 	{ "_rt_WaterRefraction",	CreateWaterRefractionTexture },
 	{ "_rt_Camera",			    CreateCameraTexture },

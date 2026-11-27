@@ -35,6 +35,7 @@
 
 // GR
 #include "rendertexture.h"
+#include "script_intro_client.h"
 
 extern void ComputeCameraVariables( const Vector &vecOrigin, const QAngle &vecAngles, 
 	Vector *pVecForward, Vector *pVecRight, Vector *pVecUp, VMatrix *pMatCamInverse );
@@ -83,6 +84,7 @@ static ConVar mat_yuv( "mat_yuv", "0" );
 
 // GR - HDR
 static ConVar mat_bloom( "mat_bloom", "1" );
+static ConVar cl_script_intro_debug( "cl_script_intro_debug", "0", 0, "Log intro camera and blend state." );
 
 ConVar r_DoCovertTransitions("r_DoCovertTransitions", "1", FCVAR_NEVER_AS_STRING );				// internally used by game code and engine to choose when to allow LOD transitions.
 ConVar r_TransitionSensitivity("r_TransitionSensitivity", "6", 0, "Controls when LODs are changed. Lower numbers cause more overt LOD transitions.");
@@ -1724,6 +1726,51 @@ void CViewRender::RenderView( const CViewSetup &view, bool drawViewModel )
 		
 	bool drawSky = r_skybox.GetBool();
 
+	// SE2007 intro: capture the scripted camera into a separate full-frame
+	// texture, then capture the normal player view and blend the two.
+	bool introReady = false;
+	IMaterial *pIntroMaterial = NULL;
+	if ( g_pIntroData && cl_script_intro_debug.GetBool() )
+	{
+		static float lastPrint = -1;
+		if ( gpGlobals->curtime < lastPrint || gpGlobals->curtime - lastPrint >= 1.0f )
+		{
+			lastPrint = gpGlobals->curtime;
+			Msg( "intro %.1f player=(%.0f %.0f %.0f; %.0f %.0f %.0f fov %.0f) camera=(%.0f %.0f %.0f; %.0f %.0f %.0f fov %.0f) primary=%d mode=%d weight=%.2f fade=%.0f\n",
+				gpGlobals->curtime, view.origin.x, view.origin.y, view.origin.z, view.angles.x, view.angles.y, view.angles.z, view.fov,
+				g_pIntroData->m_vecCameraView.x, g_pIntroData->m_vecCameraView.y, g_pIntroData->m_vecCameraView.z,
+				g_pIntroData->m_vecCameraViewAngles.x, g_pIntroData->m_vecCameraViewAngles.y, g_pIntroData->m_vecCameraViewAngles.z,
+				g_pIntroData->m_playerViewFOV, g_pIntroData->m_bDrawPrimary,
+				g_pIntroData->m_Passes.Count() ? g_pIntroData->m_Passes[0].m_BlendMode : -1, g_pIntroData->m_Passes.Count() ? g_pIntroData->m_Passes[0].m_Alpha : 0.0f, g_pIntroData->m_flCurrentFadeColor[3] );
+		}
+	}
+	if ( g_pIntroData && engine->GetDXSupportLevel() >= 90 )
+	{
+		bool foundTexture = false, foundMaterial = false;
+		ITexture *pIntroTexture = materials->FindTexture( "_rt_IntroFB", &foundTexture );
+		pIntroMaterial = materials->FindMaterial( "scripted/intro_screenspaceeffect", &foundMaterial, false );
+		if ( foundTexture && pIntroTexture && foundMaterial && pIntroMaterial )
+		{
+			if ( g_pIntroData->m_bDrawPrimary )
+			{
+				CViewSetup cameraView = view;
+				cameraView.origin = g_pIntroData->m_vecCameraView;
+				cameraView.angles = g_pIntroData->m_vecCameraViewAngles;
+				if ( g_pIntroData->m_playerViewFOV > 0 ) cameraView.fov = g_pIntroData->m_playerViewFOV;
+				cameraView.clearColor = cameraView.clearDepth = true;
+				ViewDrawScene( true, cameraView, false, false );
+			}
+			else
+			{
+				materials->ClearColor4ub( 0, 0, 0, 255 );
+				materials->ClearBuffers( true, true );
+			}
+			materials->CopyRenderTargetToTexture( pIntroTexture );
+			tmpView.clearColor = tmpView.clearDepth = true;
+			introReady = true;
+		}
+	}
+
 	// if the 3d skybox world is drawn, then don't draw the normal skybox
 	if ( Draw3dSkyboxworld( view ) )
 	{
@@ -1747,7 +1794,27 @@ void CViewRender::RenderView( const CViewSetup &view, bool drawViewModel )
 //	SetupVis( tmpView );
 
 	// Render world and all entities, particles, etc.
-	ViewDrawScene( drawSky, tmpView, true, drawViewModel );
+	ViewDrawScene( drawSky, tmpView, true, introReady ? false : drawViewModel );
+
+	if ( introReady )
+	{
+		UpdateScreenEffectTexture();
+		materials->ClearColor4ub( 0, 0, 0, 255 );
+		materials->ClearBuffers( true, true );
+		IMaterialVar *pMode = pIntroMaterial->FindVar( "$mode", NULL );
+		IMaterialVar *pAlpha = pIntroMaterial->FindVar( "$alpha", NULL );
+		if ( pMode && pAlpha )
+		{
+			for ( int i = 0; i < g_pIntroData->m_Passes.Count(); ++i )
+			{
+				const IntroDataBlendPass_t &pass = g_pIntroData->m_Passes[i];
+				if ( pass.m_Alpha <= 0 ) continue;
+				pMode->SetIntValue( pass.m_BlendMode );
+				pAlpha->SetFloatValue( pass.m_Alpha );
+				materials->DrawScreenSpaceQuad( pIntroMaterial );
+			}
+		}
+	}
 
 	// We can still use the 'current view' stuff set up in ViewDrawScene
 	s_bCanAccessCurrentView = true;
@@ -1777,6 +1844,12 @@ void CViewRender::RenderView( const CViewSetup &view, bool drawViewModel )
 	// Overlay screen fade on entire screen
 	IMaterial* pMaterial = blend ? m_ModulateSingleColor : m_TranslucentSingleColor;
 	render->ViewDrawFade( color, pMaterial );
+	if ( g_pIntroData )
+	{
+		byte introFade[4];
+		for ( int i = 0; i < 4; ++i ) introFade[i] = (byte)clamp( g_pIntroData->m_flCurrentFadeColor[i], 0.0f, 255.0f );
+		render->ViewDrawFade( introFade, m_TranslucentSingleColor );
+	}
 	PerformScreenOverlay();
 
 	// Prevent sound stutter if going slow

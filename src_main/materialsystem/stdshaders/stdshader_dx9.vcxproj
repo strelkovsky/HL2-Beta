@@ -80,6 +80,8 @@
     <ClInclude Include=".\BaseVSShader.h" />
     <ClCompile Include="..\..\public\bumpvects.cpp" />
     <ClCompile Include=".\hsv.cpp" />
+    <ClCompile Include=".\introscreenspaceeffect.cpp" />
+    <None Include=".\introscreenspaceeffect_ps20.fxc" />
     <ClCompile Include=".\lightmappedgeneric.cpp" />
     <ClCompile Include="..\..\public\mathlib.cpp" />
     <ClCompile Include="..\..\public\tier0\memoverride.cpp" />

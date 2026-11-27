@@ -6,6 +6,7 @@
 //=============================================================================
 
 #include "cbase.h"
+#include "script_intro.h"
 #include "hl2_player.h"
 #include "gamerules.h"
 #include "trains.h"
@@ -937,6 +938,12 @@ bool CHL2_Player::ShouldTransmit( const edict_t *recipient,
 void CHL2_Player::SetupVisibility( unsigned char *pvs, unsigned char *pas )
 {
 	BaseClass::SetupVisibility( pvs, pas );
+	if ( g_hIntroScript.Get() )
+	{
+		Vector origin; CBaseEntity *camera = NULL;
+		if ( g_hIntroScript->GetIncludedPVSOrigin( &origin, &camera ) )
+			engine->AddOriginToPVS( origin );
+	}
 	
 	CPointCamera *pCameraEnt = NULL;
 	while( pCameraEnt = gEntList.NextEntByClass( pCameraEnt ) )

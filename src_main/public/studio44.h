@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cmath>
 
 namespace Studio44
 {
@@ -38,6 +39,21 @@ namespace Studio44
     static_assert(offsetof(studiohdr_t,numbodyparts)==232,"MDL 44 body layout");
     static_assert(offsetof(studiohdr_t,numincludemodels)==336,"MDL 44 include layout");
     static_assert(offsetof(studiohdr_t,numanimblocks)==352,"MDL 44 block layout");
+
+    inline bool ValidVector(const float value[3])
+    { return std::isfinite(value[0]) && std::isfinite(value[1]) && std::isfinite(value[2]); }
+    inline bool Bounds(const studiohdr_t &header, bool render, float mins[3], float maxs[3])
+    {
+        if (!mins || !maxs) return false;
+        const bool hasView=header.view_bbmin[0]!=0 || header.view_bbmin[1]!=0 || header.view_bbmin[2]!=0 ||
+                           header.view_bbmax[0]!=0 || header.view_bbmax[1]!=0 || header.view_bbmax[2]!=0;
+        const float *lo=render && hasView ? header.view_bbmin : header.hull_min;
+        const float *hi=render && hasView ? header.view_bbmax : header.hull_max;
+        if(!ValidVector(lo) || !ValidVector(hi)) return false;
+        for(int i=0;i<3;++i) if(lo[i]>hi[i]) return false;
+        std::memcpy(mins,lo,3*sizeof(float)); std::memcpy(maxs,hi,3*sizeof(float));
+        return true;
+    }
 
     // Copy rather than cast: callers can provide unaligned, untrusted buffers.
     inline bool ReadHeader(const unsigned char *bytes, size_t size, size_t required, studiohdr_t &out)

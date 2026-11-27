@@ -67,6 +67,7 @@ private:
 
 public:
 	virtual void	OnRestore();
+	virtual int GetStudio44Layers( Studio44Layer *layers, int capacity ) const;
 
 	virtual void	StudioFrameAdvance();
 	virtual	void	DispatchAnimEvents ( CBaseAnimating *eventHandler );

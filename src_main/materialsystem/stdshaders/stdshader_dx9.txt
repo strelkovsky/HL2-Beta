@@ -17,3 +17,4 @@ WaterCheap_vs20.fxc
 WaterCheap_ps20.fxc
 WorldVertexTransition_vs20.fxc
 WorldVertexTransition_ps20.fxc
+introscreenspaceeffect_ps20.fxc
