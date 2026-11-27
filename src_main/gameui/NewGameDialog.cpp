@@ -39,7 +39,8 @@ using namespace vgui;
 class CChapterCard : public vgui::Panel
 {
 public:
- CChapterCard( CNewGameDialog *parent ) : Panel( parent, "ChapterCard" ), m_owner( parent ), m_index( -1 ), m_texture( -1 ), m_selected( false ), m_unlocked( false )
+ CChapterCard( CNewGameDialog *parent ) : Panel( parent, "ChapterCard" ), m_owner( parent ), m_index( -1 ), m_texture( -1 ), m_selected( false ), m_unlocked( false ),
+  m_textColor(255,255,255,255), m_fillColor(0,0,0,255), m_selectedColor(255,155,0,255), m_disabledColor(128,128,128,196)
  {
   SetSize( 172, 146 );
   m_number = new Label( this, "ChapterLabel", "" ); m_number->SetBounds( 0, 4, 172, 20 ); m_number->SetPaintBackgroundEnabled( false ); m_number->SetMouseInputEnabled( false );
@@ -53,21 +54,37 @@ public:
   const wchar_t *chapter = localize()->Find( "#NewGameUI_Chapter" );
   _snwprintf( text, ARRAYSIZE(text)-1, L"%s %s", chapter ? chapter : L"CHAPTER", number ); text[ARRAYSIZE(text)-1]=0; m_number->SetText( text );
   char token[80]; _snprintf( token, sizeof(token), "#ChapterUI_%s", id ); token[sizeof(token)-1]=0; m_name->SetText( unlocked ? token : "" );
-  Color col = unlocked ? ( selected ? Color(255,255,255,255) : Color(210,210,210,255) ) : Color(120,120,120,255);
-  m_number->SetFgColor( col ); m_name->SetFgColor( col );
+  UpdateColors();
   if ( m_texture < 0 ) m_texture = surface()->CreateNewTextureID();
   char material[128]; _snprintf( material, sizeof(material), "vgui/chapters/chapter%s", id ); material[sizeof(material)-1]=0;
   surface()->DrawSetTextureFile( m_texture, material, true, false ); Repaint();
  }
+ virtual void ApplySchemeSettings( IScheme *scheme )
+ {
+  Panel::ApplySchemeSettings( scheme );
+  m_textColor = scheme->GetColor( "NewGame.TextColor", Color(255,255,255,255) );
+  m_fillColor = scheme->GetColor( "NewGame.FillColor", Color(0,0,0,255) );
+  m_selectedColor = scheme->GetColor( "NewGame.SelectionColor", Color(255,155,0,255) );
+  m_disabledColor = scheme->GetColor( "NewGame.DisabledColor", Color(128,128,128,196) );
+  UpdateColors();
+ }
  virtual void PaintBackground()
  {
-  surface()->DrawSetColor( m_selected ? Color(255,255,255,255) : Color(110,110,110,255) ); surface()->DrawFilledRect( 0, 40, 172, 146 );
-  surface()->DrawSetColor( 255,255,255,m_unlocked ? 255 : 96 ); surface()->DrawSetTexture( m_texture ); surface()->DrawTexturedSubRect( 10, 50, 162, 136, 0.0f, 0.0f, 152.0f / 256.0f, 86.0f / 128.0f );
+  // Child labels may have just reapplied their scheme after the card did.
+  UpdateColors();
+  surface()->DrawSetColor( !m_unlocked ? m_disabledColor : (m_selected ? m_selectedColor : m_fillColor) ); surface()->DrawFilledRect( 0, 40, 172, 146 );
+  surface()->DrawSetColor( 255,255,255,m_unlocked ? 255 : 128 ); surface()->DrawSetTexture( m_texture ); surface()->DrawTexturedSubRect( 10, 50, 162, 136, 0.0f, 0.0f, 152.0f / 256.0f, 86.0f / 128.0f );
  }
  virtual void OnMousePressed( MouseCode code ) { if ( m_unlocked ) m_owner->SelectChapter( m_index, false ); }
  virtual void OnMouseDoublePressed( MouseCode code ) { if ( m_unlocked ) m_owner->SelectChapter( m_index, true ); }
 private:
+ void UpdateColors()
+ {
+  const Color color = !m_unlocked ? m_disabledColor : (m_selected ? m_selectedColor : m_textColor);
+  m_number->SetFgColor( color ); m_name->SetFgColor( color );
+ }
  CNewGameDialog *m_owner; Label *m_number, *m_name; int m_index, m_texture; bool m_selected, m_unlocked;
+ Color m_textColor, m_fillColor, m_selectedColor, m_disabledColor;
 };
 static int __cdecl CompareChapterFiles( const void *left, const void *right )
 {
