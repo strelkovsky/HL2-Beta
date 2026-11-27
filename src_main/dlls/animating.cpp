@@ -210,6 +210,11 @@ void CBaseAnimating::StudioFrameAdvance()
 int CBaseAnimating::SelectWeightedSequence ( Activity activity )
 {
 	Assert( activity != ACT_INVALID );
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+	{
+		const char *name=ActivityList_NameForIndex(activity);
+		return name ? g_pServerMdl44ModelInfo->FindActivity(GetModel(),name) : -1;
+	}
 	Assert( GetModelPtr() );
 	return ::SelectWeightedSequence( GetModelPtr(), activity, m_nSequence );
 }
@@ -266,6 +271,8 @@ int CBaseAnimating::LookupSequence( const char *label )
 				Msg( "MDL 44 server lookup: %s / %s = %d (duration unavailable)\n", g_pServerMdl44ModelInfo->OriginalName( model ), label, nativeSequence );
 		}
 	}
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+		return g_pServerMdl44ModelInfo->FindSequence(GetModel(),label);
 	Assert( GetModelPtr() );
 	return ::LookupSequence( GetModelPtr(), label );
 }
@@ -279,6 +286,7 @@ int CBaseAnimating::LookupSequence( const char *label )
 //-----------------------------------------------------------------------------
 float CBaseAnimating::GetSequenceMoveYaw( int iSequence )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return NOMOTION;
 	Vector				vecReturn;
 	
 	Assert( GetModelPtr() );
@@ -301,6 +309,8 @@ float CBaseAnimating::GetSequenceMoveYaw( int iSequence )
 //-----------------------------------------------------------------------------
 float CBaseAnimating::GetSequenceMoveDist( int iSequence )
 {
+	// Root motion for native v44 sequences is not yet exposed by model info.
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return 0.0f;
 	Vector				vecReturn;
 	
 	Assert( GetModelPtr() );
@@ -318,6 +328,7 @@ float CBaseAnimating::GetSequenceMoveDist( int iSequence )
 //-----------------------------------------------------------------------------
 void CBaseAnimating::GetSequenceLinearMotion( int iSequence, Vector *pVec )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) { pVec->Init(); return; }
 	Assert( GetModelPtr() );
 	::GetSequenceLinearMotion( GetModelPtr(), iSequence, GetPoseParameterArray(), pVec );
 }
@@ -331,6 +342,11 @@ void CBaseAnimating::GetSequenceLinearMotion( int iSequence, Vector *pVec )
 //-----------------------------------------------------------------------------
 const char *CBaseAnimating::GetSequenceName( int iSequence )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+	{
+		const char *name=g_pServerMdl44ModelInfo->SequenceName(GetModel(),iSequence);
+		return name ? name : "Not Found!";
+	}
 	if( iSequence == -1 )
 	{
 		return "Not Found!";
@@ -350,6 +366,7 @@ const char *CBaseAnimating::GetSequenceName( int iSequence )
 //-----------------------------------------------------------------------------
 const char *CBaseAnimating::GetSequenceActivityName( int iSequence )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return "Not Found!";
 	if( iSequence == -1 )
 	{
 		return "Not Found!";
@@ -428,6 +445,8 @@ void CBaseAnimating::ResetSequenceInfo ( )
 //=========================================================
 bool CBaseAnimating::IsValidSequence( int iSequence )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel()))
+		return iSequence>=0 && iSequence<g_pServerMdl44ModelInfo->SequenceCount(GetModel());
 	Assert( GetModelPtr() );
 	studiohdr_t* pstudiohdr = GetModelPtr( );
 	if (iSequence < 0 || iSequence >= pstudiohdr->numseq)
@@ -495,6 +514,8 @@ float CBaseAnimating::GetSequenceCycleRate( int iSequence )
 
 float CBaseAnimating::GetLastVisibleCycle( int iSequence )
 {
+	// Avoid interpreting native indices as legacy sequence descriptors.
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return 1.0f;
 	studiohdr_t* pstudiohdr = GetModelPtr( );
 	if ( !pstudiohdr )
 	{
@@ -566,6 +587,8 @@ bool CBaseAnimating::HasAnimEvent( int nSequence, int nEvent )
 //=========================================================
 void CBaseAnimating::DispatchAnimEvents ( CBaseAnimating *eventHandler )
 {
+	// Animation events in native v44 have a different layout.
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return;
   	animevent_t	event;
 
 	studiohdr_t *pstudiohdr = GetModelPtr( );
@@ -2013,6 +2036,7 @@ void CBaseAnimating::DisableServerIK()
 
 Activity CBaseAnimating::GetSequenceActivity( int iSequence )
 {
+	if (g_pServerMdl44ModelInfo && g_pServerMdl44ModelInfo->HasModel(GetModel())) return ACT_INVALID;
 	if( iSequence == -1 )
 	{
 		return ACT_INVALID;

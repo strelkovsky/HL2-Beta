@@ -16,8 +16,8 @@ namespace Mdl44Sequence
     };
     struct Sequence
     {
-        std::string label;
-        int32_t flags, width, height;
+        std::string label, activity;
+        int32_t flags, width, height, activityWeight;
         std::vector<unsigned int> animations;
         std::vector<float> boneWeights;
         std::vector<Layer> layers;
@@ -48,7 +48,9 @@ namespace Mdl44Sequence
         for(size_t i=0;i<seqCount;++i)
         {
             const size_t at=seqStart+i*seqSize;
-            Sequence seq; seq.flags=ReadI32(p,at+12); seq.width=ReadI32(p,at+68); seq.height=ReadI32(p,at+72);
+            Sequence seq; seq.flags=ReadI32(p,at+12); seq.width=ReadI32(p,at+68); seq.height=ReadI32(p,at+72); seq.activityWeight=ReadI32(p,at+20);
+            const int32_t activityOffset=ReadI32(p,at+8);
+            if(activityOffset && !RelativeString(p,length,at,activityOffset,seq.activity)) return false;
             const int32_t blendCount=ReadI32(p,at+56), blendOffset=ReadI32(p,at+60);
             if (!RelativeString(p,length,at,ReadI32(p,at+4),seq.label) || seq.label.empty() ||
                 seq.width<=0 || seq.height<=0 || blendCount<=0 ||

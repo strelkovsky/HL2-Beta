@@ -131,6 +131,20 @@ public:
         const Mdl44Virtual::Entry *found=c->virtualModel.FindSequence(name);
         return found ? static_cast<int>(found-&c->virtualModel.Sequences()[0]) : -1;
     }
+    virtual int FindActivity(const model_t *model, const char *activity) const
+    {
+        Mdl44CachedModel *c=FindCached44(model); if(!c || !activity) return -1;
+        int best=-1, bestWeight=-1;
+        for(size_t i=0;i<c->virtualModel.Sequences().size();++i)
+        {
+            const Mdl44Virtual::Entry &entry=c->virtualModel.Sequences()[i];
+            const Mdl44Sequence::Sequence &seq=c->virtualModel.Groups()[entry.group].sequences.sequences[entry.index];
+            if(seq.activity.empty() || !Mdl44Sequence::EqualName(seq.activity,activity) || seq.animations.size()!=1) continue;
+            const int weight=seq.activityWeight>0 ? seq.activityWeight : 1;
+            if(weight>bestWeight) { best=static_cast<int>(i);bestWeight=weight; }
+        }
+        return best;
+    }
     virtual const char *SequenceName(const model_t *model, int sequence) const
     {
         Mdl44CachedModel *c=FindCached44(model);
@@ -576,6 +590,11 @@ bool Mdl44ModelInfo::AttachmentTransform(const model_t *model, int attachment, f
     world=Mdl44Binding::Multiply(world,local); std::memcpy(output,world.m,sizeof(world.m)); return true;
 }
 
+static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
+                                    int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
+                                    const float *flexWeights, unsigned int flexCount);
+static void Mdl44AnimatedEntityShutdown();
+static void Mdl44AnimatedEntityReleaseGpu();
 static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin);
 static bool Mdl44RigidEntityBounds(const char *name, float *mins, float *maxs);
 static void Mdl44RigidEntityReleaseGpu();
@@ -599,10 +618,12 @@ public:
         m_attempted=false; m_valid=false; m_logged=false; m_gestureAttempted=false; m_gestureValid=false;
     }
     virtual bool Draw(const model_t *identity, const char *name, const float *transform, unsigned int skin, float time,
-                      const Studio44Layer *layers, unsigned int layerCount, const float *flexWeights, unsigned int flexCount, const float *viewTarget)
+                      int sequenceIndex, float cycle, const Studio44Layer *layers, unsigned int layerCount, const float *flexWeights, unsigned int flexCount, const float *viewTarget)
     {
         if (!name || !transform) return false;
-        if (_stricmp(name,"models/gman_high.mdl")) return Mdl44RigidEntityDraw(name,transform,skin);
+        if (_stricmp(name,"models/gman_high.mdl"))
+            return Mdl44AnimatedEntityDraw(identity,name,transform,skin,sequenceIndex,cycle,layers,layerCount,flexWeights,flexCount) ||
+                   Mdl44RigidEntityDraw(name,transform,skin);
         if (!m_attempted)
         {
             m_attempted=true;
@@ -832,8 +853,110 @@ private:
 };
 static Mdl44EntityPreview s_Mdl44EntityPreview;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(Mdl44EntityPreview, IMdl44EntityPreview, MDL44_ENTITY_PREVIEW_VERSION, s_Mdl44EntityPreview);
-void Mdl44EntityPreviewReleaseGpu() { Mdl44RigidEntityReleaseGpu(); s_Mdl44EntityPreview.ReleaseGpu(); }
-void Mdl44EntityPreviewShutdown() { Mdl44RigidEntityShutdown(); s_Mdl44EntityPreview.Shutdown(); }
+void Mdl44EntityPreviewReleaseGpu() { Mdl44AnimatedEntityReleaseGpu(); Mdl44RigidEntityReleaseGpu(); s_Mdl44EntityPreview.ReleaseGpu(); }
+void Mdl44EntityPreviewShutdown() { Mdl44AnimatedEntityShutdown(); Mdl44RigidEntityShutdown(); s_Mdl44EntityPreview.Shutdown(); }
+
+// Shared GPU geometry per model, with poses evaluated per entity.
+struct Mdl44AnimatedEntry
+{
+    std::string name;
+    Mdl44::StudioModel model;
+    Studio44MeshOwner *gpu;
+    bool attempted, valid, logged, poseWarning;
+    Mdl44AnimatedEntry() : gpu(NULL), attempted(false), valid(false), logged(false), poseWarning(false) {}
+};
+static std::vector<Mdl44AnimatedEntry *> s_animatedEntities;
+static Mdl44AnimatedEntry *GetAnimatedEntity44(const char *name)
+{
+    for(size_t i=0;i<s_animatedEntities.size();++i)
+        if(Mdl44Sequence::EqualName(s_animatedEntities[i]->name,name)) return s_animatedEntities[i];
+    Mdl44AnimatedEntry *entry=new Mdl44AnimatedEntry; entry->name=name; s_animatedEntities.push_back(entry); return entry;
+}
+static void Mdl44AnimatedEntityReleaseGpu()
+{
+    for(size_t i=0;i<s_animatedEntities.size();++i) { delete s_animatedEntities[i]->gpu; s_animatedEntities[i]->gpu=NULL; }
+}
+static void Mdl44AnimatedEntityShutdown()
+{
+    Mdl44AnimatedEntityReleaseGpu();
+    for(size_t i=0;i<s_animatedEntities.size();++i) delete s_animatedEntities[i];
+    s_animatedEntities.clear();
+}
+static bool Mdl44ApplySequence(Mdl44CachedModel *cached, int sequence, float cycle, float weight,
+                               std::vector<Mdl44Animation::LocalPose> &pose)
+{
+    if(!cached || sequence<0 || static_cast<size_t>(sequence)>=cached->virtualModel.Sequences().size()) return false;
+    const Mdl44Virtual::Entry &entry=cached->virtualModel.Sequences()[sequence];
+    const Mdl44Virtual::Group &group=cached->virtualModel.Groups()[entry.group];
+    Mdl44GroupSource *bytes=Mdl44GetGroupSource(cached,entry.group); if(!bytes) return false;
+    Mdl44Pose::Source source={bytes->mdl.data(),bytes->ani.empty()?NULL:bytes->ani.data(),bytes->mdl.size(),bytes->ani.size(),
+        &group.skeleton,&group.animations,&group.sequences,&group.masterBone};
+    return Mdl44Pose::Accumulate(source,entry.index,clamp(cycle,0.0f,1.0f),clamp(weight,0.0f,1.0f),pose);
+}
+static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
+                                    int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
+                                    const float *flexWeights, unsigned int flexCount)
+{
+    Mdl44CachedModel *cached=FindCached44(identity);
+    if(!cached || cached->virtualModel.Groups().empty()) return false;
+    const Mdl44Skeleton::Skeleton &skeleton=cached->virtualModel.Groups()[0].skeleton;
+    if(skeleton.bones.size()<=1) return false;
+    Mdl44AnimatedEntry *entry=GetAnimatedEntity44(name);
+    if(!entry->attempted)
+    {
+        entry->attempted=true;
+        entry->valid=LoadModelGeometry44(name,entry->model,false);
+        if(!entry->valid) Warning("MDL 44 animated entity: unable to load geometry for %s\n",name);
+    }
+    if(!entry->valid) return false;
+    if(!entry->gpu)
+    {
+        CreateInterfaceFn factory=Sys_GetFactory("studiorender.dll");
+        IStudioRender44 *renderer=factory ? static_cast<IStudioRender44 *>(factory(STUDIO_RENDER_44_INTERFACE_VERSION,NULL)) : NULL;
+        if(!renderer || !materialSystemInterface) return false;
+        Studio44MeshOwner *gpu=new Studio44MeshOwner(renderer); size_t skipped=0;
+        if(!UploadStaticModel44(entry->model,*gpu,skipped,true,cached->flexValid ? &cached->flex : NULL) || skipped)
+        { delete gpu; if(!entry->poseWarning) { Warning("MDL 44 animated entity: cannot upload %s\n",name); entry->poseWarning=true; } return false; }
+        entry->gpu=gpu;
+    }
+    std::vector<Mdl44Animation::LocalPose> pose(skeleton.bones.size());
+    for(size_t i=0;i<pose.size();++i) {
+        std::memcpy(pose[i].position,skeleton.bones[i].position,sizeof(pose[i].position));
+        std::memcpy(pose[i].rotation,skeleton.bones[i].quaternion,sizeof(pose[i].rotation));
+    }
+    const bool animated=Mdl44ApplySequence(cached,sequence,cycle,1.0f,pose);
+    if(!animated && !entry->poseWarning) { Warning("MDL 44 animated entity: unsupported sequence %d for %s; using bind pose\n",sequence,name); entry->poseWarning=true; }
+    if(layers && layerCount<=8) for(unsigned int i=0;i<layerCount;++i)
+        Mdl44ApplySequence(cached,layers[i].sequence,layers[i].cycle,layers[i].weight,pose);
+    std::vector<Mdl44Binding::Matrix> matrices;
+    if(!Mdl44Binding::BuildSkinMatrices(skeleton,pose,matrices) || matrices.empty()) return false;
+    if(g_pStudioRender && materialSystemInterface)
+    {
+        Vector position;
+        for(int r=0;r<3;++r) position[r]=transform[r*4+3]+transform[r*4]*cached->header.illumposition[0]+
+            transform[r*4+1]*cached->header.illumposition[1]+transform[r*4+2]*cached->header.illumposition[2];
+        LightingState_t light; ITexture *cubemap=LightcacheGet(position,light);
+        if(cubemap) materialSystemInterface->BindLocalCubemap(cubemap);
+        if(mat_fullbright.GetInt()==1) {
+            Vector white[6];for(int i=0;i<6;++i)white[i].Init(1,1,1);
+            materialSystemInterface->SetAmbientLight(1,1,1);g_pStudioRender->SetAmbientLightColors(white,white);g_pStudioRender->SetLocalLights(0,NULL);
+        } else {
+            materialSystemInterface->SetAmbientLight(0,0,0);g_pStudioRender->SetAmbientLightColors(light.r_boxcolor,light.totalboxcolor);
+            LightDesc_t lights[MAXLOCALLIGHTS];int count=0;
+            for(int i=0;i<light.numlights && count<MAXLOCALLIGHTS;++i) if(WorldLightToMaterialLight(light.locallight[i],lights[count])) {
+                int style=light.locallight[i]->style;float scale=(style>=0 && style<256) ? g_lightmapScale*d_lightstylevalue[style]/264.0f : 1.0f;
+                for(int j=0;j<3;++j)lights[count].m_Color[j]*=scale;++count;
+            }
+            g_pStudioRender->SetLocalLights(count,lights);
+        }
+    }
+    std::vector<float> flex;
+    bool hasFlex=cached->flexValid && flexWeights && Mdl44Flex::Evaluate(cached->flex,flexWeights,flexCount,flex);
+    if(!entry->gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()),
+        hasFlex ? &cached->flex : NULL,hasFlex ? &flex : NULL)) return false;
+    if(!entry->logged) { Msg("MDL 44 animated entity: %s, sequence %d%s\n",name,sequence,animated?"":" (bind pose)");entry->logged=true; }
+    return true;
+}
 
 struct Mdl44MapCache
 {
@@ -941,8 +1064,44 @@ static bool Mdl44RigidEntityBounds(const char *name,float *mins,float *maxs)
 static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigned int skin)
 {
     Mdl44RigidEntry *entry=GetRigidEntity44(name);
-    if(!entry || !entry->cache || !Mdl44MapCacheCreateGpu(entry->cache) ||
-       !Mdl44MapCacheDraw(entry->cache,transform,skin,1.0f,MDL44_DRAW_ALL)) return false;
+    if(!entry || !entry->cache || !Mdl44MapCacheCreateGpu(entry->cache)) return false;
+    // Rigid entities bypass the normal studio renderer's lighting setup.
+    // Recompute it for this instance instead of inheriting the previous draw.
+    if(g_pStudioRender && materialSystemInterface)
+    {
+        float mins[3],maxs[3],illumination[3];
+        if(Mdl44MapCacheBounds(entry->cache,mins,maxs,illumination))
+        {
+            Vector position;
+            for(int r=0;r<3;++r) position[r]=transform[r*4+3]+transform[r*4]*illumination[0]+
+                transform[r*4+1]*illumination[1]+transform[r*4+2]*illumination[2];
+            LightingState_t state; ITexture *cubemap=LightcacheGet(position,state);
+            if(cubemap) materialSystemInterface->BindLocalCubemap(cubemap);
+            if(mat_fullbright.GetInt()==1)
+            {
+                Vector white[6]; for(int i=0;i<6;++i) white[i].Init(1,1,1);
+                materialSystemInterface->SetAmbientLight(1,1,1);
+                g_pStudioRender->SetAmbientLightColors(white,white);
+                g_pStudioRender->SetLocalLights(0,NULL);
+            }
+            else
+            {
+                materialSystemInterface->SetAmbientLight(0,0,0);
+                g_pStudioRender->SetAmbientLightColors(state.r_boxcolor,state.totalboxcolor);
+                LightDesc_t lights[MAXLOCALLIGHTS]; int count=0;
+                for(int i=0;i<state.numlights && count<MAXLOCALLIGHTS;++i)
+                    if(WorldLightToMaterialLight(state.locallight[i],lights[count]))
+                    {
+                        int style=state.locallight[i]->style;
+                        float scale=(style>=0 && style<256) ? g_lightmapScale*d_lightstylevalue[style]/264.0f : 1.0f;
+                        for(int c=0;c<3;++c) lights[count].m_Color[c]*=scale;
+                        ++count;
+                    }
+                g_pStudioRender->SetLocalLights(count,lights);
+            }
+        }
+    }
+    if(!Mdl44MapCacheDraw(entry->cache,transform,skin,1.0f,MDL44_DRAW_ALL)) return false;
     if(!entry->logged) { Msg("MDL 44 rigid entity: %s\n",name); entry->logged=true; }
     return true;
 }

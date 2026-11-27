@@ -1228,10 +1228,10 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 			Studio44Layer layers[8];
 			const int layerCount = GetStudio44Layers( layers, 8 );
 			float flexWeights[64];
-			const int flexCount = isGman ? GetStudio44FlexWeights( flexWeights, 64 ) : 0;
+			const int flexCount = GetStudio44FlexWeights( flexWeights, 64 );
 			float viewTarget[3];
-			const bool hasTarget = isGman && GetStudio44ViewTarget( viewTarget );
-			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, layers, layerCount, flexWeights, flexCount, hasTarget ? viewTarget : NULL ) )
+			const bool hasTarget = GetStudio44ViewTarget( viewTarget );
+			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, m_nSequence, m_flCycle, layers, layerCount, flexWeights, flexCount, hasTarget ? viewTarget : NULL ) )
 				return 1;
 		}
 	}
@@ -1314,6 +1314,8 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 //-----------------------------------------------------------------------------
 void C_BaseAnimating::DoAnimationEvents( void )
 {
+	// Native v44 events cannot be read from the legacy fallback header.
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel())) return;
 	// don't fire events when paused
 	if ( gpGlobals->frametime == 0.0f  )
 		return;
@@ -2154,6 +2156,11 @@ bool C_BaseAnimating::TestHitboxes( const Ray_t &ray, unsigned int fContentsMask
 //-----------------------------------------------------------------------------
 float C_BaseAnimating::GetSequenceCycleRate( int iSequence )
 {
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel()))
+	{
+		int flags=0; float duration=0;
+		return g_pClientMdl44ModelInfo->SequenceInfo(GetModel(),iSequence,flags,duration) && duration>0 ? 1.0f/duration : 0.0f;
+	}
 	studiohdr_t *hdr = GetModelPtr();
 	if ( !hdr )
 	{
@@ -2248,6 +2255,7 @@ float C_BaseAnimating::GetSequenceGroundSpeed( int iSequence )
 //-----------------------------------------------------------------------------
 float C_BaseAnimating::GetSequenceMoveDist( int iSequence )
 {
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel())) return 0.0f;
 	Vector				vecReturn;
 	
 	::GetSequenceLinearMotion( GetModelPtr(), iSequence, m_flPoseParameter, &vecReturn );
@@ -2395,6 +2403,11 @@ void C_BaseAnimating::ResetSequenceInfo( void )
 
 int C_BaseAnimating::GetSequenceFlags( int iSequence )
 {
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel()))
+	{
+		int flags=0; float duration=0;
+		return g_pClientMdl44ModelInfo->SequenceInfo(GetModel(),iSequence,flags,duration) ? flags : 0;
+	}
 	return ::GetSequenceFlags( GetModelPtr(), iSequence );
 }
 
@@ -2405,6 +2418,11 @@ bool C_BaseAnimating::IsSequenceLooping( int iSequence )
 
 float C_BaseAnimating::SequenceDuration( int iSequence )
 {
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel()))
+	{
+		int flags=0; float duration=0;
+		return g_pClientMdl44ModelInfo->SequenceInfo(GetModel(),iSequence,flags,duration) ? duration : 0.0f;
+	}
 	studiohdr_t *hdr = GetModelPtr();
 	if ( !hdr )
 	{
@@ -2720,6 +2738,7 @@ const char *C_BaseAnimating::GetSequenceName( int iSequence )
 
 Activity C_BaseAnimating::GetSequenceActivity( int iSequence )
 {
+	if (g_pClientMdl44ModelInfo && g_pClientMdl44ModelInfo->HasModel(GetModel())) return ACT_INVALID;
 	if( iSequence == -1 )
 	{
 		return ACT_INVALID;

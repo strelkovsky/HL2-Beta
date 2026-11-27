@@ -5,7 +5,7 @@
 #include "studio44.h"
 #include "imdl44entitypreview.h"
 struct model_t;
-#define MDL44_MODEL_INFO_VERSION "Mdl44ModelInfo006"
+#define MDL44_MODEL_INFO_VERSION "Mdl44ModelInfo007"
 class IMdl44ModelInfo
 {
 public:
@@ -16,6 +16,7 @@ public:
     virtual const char *OriginalName(const model_t *model) const = 0;
     virtual int SequenceCount(const model_t *model) const = 0;
     virtual int FindSequence(const model_t *model, const char *name) const = 0;
+    virtual int FindActivity(const model_t *model, const char *activity) const = 0;
     virtual const char *SequenceName(const model_t *model, int sequence) const = 0;
     // Duration is available only for sequences with one animation; unsupported
     // pose-parameter blends return false instead of a guessed value.
