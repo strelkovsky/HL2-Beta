@@ -2840,6 +2840,7 @@
     <ClCompile Include=".\c_script_intro.cpp" />
     <ClCompile Include="..\game_shared\script_intro_shared.cpp" />
   </ItemGroup>
+  <ItemGroup><ClCompile Include=".\hl2_hud\hud_credits_logo.cpp" /></ItemGroup>
   <Import Project="..\HL2_Output.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

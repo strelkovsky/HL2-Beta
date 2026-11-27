@@ -12,6 +12,7 @@
 #include "eventqueue.h"
 #include "mathlib.h"
 #include "globalstate.h"
+#include "script_intro.h"
 
 
 const int SF_AUTO_FIREONCE		= 0x01;
@@ -67,6 +68,30 @@ END_DATADESC()
 void CLogicAuto::Activate(void)
 {
 	BaseClass::Activate();
+	// An immediate OnNewGame fade is authored to cover the opening frame.
+	// Pre-arm only a matching script_intro Activate + opaque FadeTo pair;
+	// the actual outputs still fire normally at the SE2007 0.2s delay.
+	if ( gpGlobals->eLoadType == MapLoad_NewGame &&
+		 (!m_globalstate || GlobalEntity_GetState(m_globalstate) == GLOBAL_ON) )
+	{
+		for ( const CEventAction *fade=m_OnNewGame.GetFirstAction(); fade; fade=fade->m_pNext )
+		{
+			if ( fade->m_flDelay>0 || fade->m_nTimesToFire==0 || fade->m_iTarget==NULL_STRING ||
+				 fade->m_iTargetInput==NULL_STRING || Q_stricmp(STRING(fade->m_iTargetInput),"FadeTo") ) continue;
+			float alpha=0, duration=0;
+			if ( fade->m_iParameter==NULL_STRING || sscanf(STRING(fade->m_iParameter),"%f %f",&alpha,&duration)!=2 ||
+				 alpha<255.0f || duration<0 || duration>0.01f ) continue;
+			bool activates=false;
+			for ( const CEventAction *action=m_OnNewGame.GetFirstAction(); action; action=action->m_pNext )
+				if ( action->m_flDelay<=0 && action->m_nTimesToFire!=0 && action->m_iTarget!=NULL_STRING &&
+					 action->m_iTargetInput!=NULL_STRING && !Q_stricmp(STRING(action->m_iTargetInput),"Activate") &&
+					 !Q_stricmp(STRING(action->m_iTarget),STRING(fade->m_iTarget)) ) { activates=true; break; }
+			if (!activates) continue;
+			CBaseEntity *target=gEntList.FindEntityByName(NULL,fade->m_iTarget,NULL);
+			if (target && FClassnameIs(target,"script_intro"))
+				static_cast<CScriptIntro *>(target)->PrepareStartupFade(alpha,duration);
+		}
+	}
 	SetNextThink( gpGlobals->curtime + 0.2 );
 }
 

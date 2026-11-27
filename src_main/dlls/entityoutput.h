@@ -66,6 +66,7 @@ public:
 	int Restore( IRestore &restore, int elementCount );
 
 	int NumberOfElements( void );
+	const CEventAction *GetFirstAction() const { return m_ActionList; }
 
 	float GetMaxDelay( void );
 

@@ -45,6 +45,7 @@ public:
 	void	InputSetFadeColor( inputdata_t &inputdata );
 
 	bool	GetIncludedPVSOrigin( Vector *pOrigin, CBaseEntity **ppCamera );
+	void PrepareStartupFade( float alpha, float duration );
 
 private:
 	// Think func used to finish the blend off

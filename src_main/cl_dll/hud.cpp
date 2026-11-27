@@ -136,6 +136,7 @@ hudelement_hidden_t sHudHiddenArray[] =
 	{ "CHudAmmo", HIDEHUD_HEALTH | HIDEHUD_PLAYERDEAD | HIDEHUD_NEEDSUIT },
 	{ "CHudSecondaryAmmo", HIDEHUD_HEALTH | HIDEHUD_PLAYERDEAD | HIDEHUD_NEEDSUIT },
 	{ "CHudZoom", HIDEHUD_HEALTH | HIDEHUD_PLAYERDEAD | HIDEHUD_NEEDSUIT },
+	{ "CHudCreditsLogo", 0 },
 	{ "CHUDQuickInfo", 0 },
 
 	// TF2 hud elements

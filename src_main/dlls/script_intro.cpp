@@ -308,6 +308,16 @@ void CScriptIntro::BlendComplete( )
 // Purpose: 
 // Input  : &inputdata - 
 //-----------------------------------------------------------------------------
+// A map can request an immediate opaque fade and activation from OnNewGame.
+// Prepare it during entity activation, before the first client frame.
+void CScriptIntro::PrepareStartupFade( float alpha, float duration )
+{
+    m_flFadeAlpha = alpha;
+    m_flFadeDuration = duration;
+    m_bActive = true;
+    g_hIntroScript = this;
+}
+
 void CScriptIntro::InputActivate( inputdata_t &inputdata )
 {
 	m_bActive = true;
