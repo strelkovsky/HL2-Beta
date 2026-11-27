@@ -283,6 +283,7 @@ public:
 	Vector							m_vecForce;
 	int								m_nForceBone;
 
+	EHANDLE                         m_hLightingOriginRelative;
 	int								m_nSkin;
 	// Object bodygroup
 	int								m_nBody;

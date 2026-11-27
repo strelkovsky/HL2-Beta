@@ -38,6 +38,8 @@ public:
 	DECLARE_SERVERCLASS();
 
 	virtual void SetModel( const char *szModelName );
+	virtual void Activate();
+	virtual void SetTransmit( CCheckTransmitInfo *pInfo );
 
 	studiohdr_t *GetModelPtr( void );
 
@@ -229,6 +231,9 @@ public:
 	CNetworkVar( int, m_nForceBone );
 	CNetworkVector( m_vecForce );
 
+	// Relative lighting reference used by moving props in retail maps.
+	string_t m_iszLightingOriginRelative;
+	CNetworkHandle( CBaseEntity, m_hLightingOriginRelative );
 	CNetworkVar( int, m_nSkin );
 	CNetworkVar( int, m_nBody );
 	CNetworkVar( int, m_nHitboxSet );

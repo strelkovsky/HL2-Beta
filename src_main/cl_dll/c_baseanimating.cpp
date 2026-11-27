@@ -73,7 +73,28 @@ BEGIN_RECV_TABLE_NOBASE( C_BaseAnimating, DT_ServerAnimationData )
 	RecvPropFloat(RECVINFO(m_flCycle)),
 END_RECV_TABLE()
 
+class C_InfoLightingRelative : public C_BaseEntity
+{
+public:
+    DECLARE_CLASS(C_InfoLightingRelative,C_BaseEntity);
+    DECLARE_CLIENTCLASS();
+    bool LightingOffset(matrix3x4_t &offset)
+    {
+        if(!m_hLightingLandmark.Get()) return false;
+        matrix3x4_t inverse;
+        MatrixInvert(m_hLightingLandmark->EntityToWorldTransform(),inverse);
+        ConcatTransforms(EntityToWorldTransform(),inverse,offset);
+        return true;
+    }
+private:
+    EHANDLE m_hLightingLandmark;
+};
+IMPLEMENT_CLIENTCLASS_DT(C_InfoLightingRelative,DT_InfoLightingRelative,CInfoLightingRelative)
+    RecvPropEHandle(RECVINFO(m_hLightingLandmark)),
+END_RECV_TABLE()
+
 IMPLEMENT_CLIENTCLASS_DT(C_BaseAnimating, DT_BaseAnimating, CBaseAnimating)
+	RecvPropEHandle(RECVINFO(m_hLightingOriginRelative)),
 	RecvPropInt(RECVINFO(m_nSequence)),
 	RecvPropInt(RECVINFO(m_nForceBone)),
 	RecvPropVector(RECVINFO(m_vecForce)),
@@ -1231,7 +1252,10 @@ int C_BaseAnimating::InternalDrawModel( int flags )
 			const int flexCount = GetStudio44FlexWeights( flexWeights, 64 );
 			float viewTarget[3];
 			const bool hasTarget = GetStudio44ViewTarget( viewTarget );
-			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, m_nSequence, m_flCycle, layers, layerCount, flexWeights, flexCount, hasTarget ? viewTarget : NULL ) )
+            matrix3x4_t lightingOffset;
+            C_InfoLightingRelative *relative=static_cast<C_InfoLightingRelative *>(m_hLightingOriginRelative.Get());
+            const bool hasLightingOffset=relative && relative->LightingOffset(lightingOffset);
+			if ( g_pMdl44EntityPreview->Draw( GetModel(), name, &transform[0][0], m_nSkin, gpGlobals->curtime, m_nSequence, m_flCycle, layers, layerCount, flexWeights, flexCount, hasTarget ? viewTarget : NULL, hasLightingOffset ? &lightingOffset[0][0] : NULL ) )
 				return 1;
 		}
 	}

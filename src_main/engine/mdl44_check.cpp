@@ -592,10 +592,10 @@ bool Mdl44ModelInfo::AttachmentTransform(const model_t *model, int attachment, f
 
 static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
                                     int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
-                                    const float *flexWeights, unsigned int flexCount);
+                                    const float *flexWeights, unsigned int flexCount, const float *lightingOffset);
 static void Mdl44AnimatedEntityShutdown();
 static void Mdl44AnimatedEntityReleaseGpu();
-static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin);
+static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin, const float *lightingOffset);
 static bool Mdl44RigidEntityBounds(const char *name, float *mins, float *maxs);
 static void Mdl44RigidEntityReleaseGpu();
 static void Mdl44RigidEntityShutdown();
@@ -618,12 +618,12 @@ public:
         m_attempted=false; m_valid=false; m_logged=false; m_gestureAttempted=false; m_gestureValid=false;
     }
     virtual bool Draw(const model_t *identity, const char *name, const float *transform, unsigned int skin, float time,
-                      int sequenceIndex, float cycle, const Studio44Layer *layers, unsigned int layerCount, const float *flexWeights, unsigned int flexCount, const float *viewTarget)
+                      int sequenceIndex, float cycle, const Studio44Layer *layers, unsigned int layerCount, const float *flexWeights, unsigned int flexCount, const float *viewTarget, const float *lightingOffset)
     {
         if (!name || !transform) return false;
         if (_stricmp(name,"models/gman_high.mdl"))
-            return Mdl44AnimatedEntityDraw(identity,name,transform,skin,sequenceIndex,cycle,layers,layerCount,flexWeights,flexCount) ||
-                   Mdl44RigidEntityDraw(name,transform,skin);
+            return Mdl44AnimatedEntityDraw(identity,name,transform,skin,sequenceIndex,cycle,layers,layerCount,flexWeights,flexCount,lightingOffset) ||
+                   Mdl44RigidEntityDraw(name,transform,skin,lightingOffset);
         if (!m_attempted)
         {
             m_attempted=true;
@@ -895,7 +895,7 @@ static bool Mdl44ApplySequence(Mdl44CachedModel *cached, int sequence, float cyc
 }
 static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
                                     int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
-                                    const float *flexWeights, unsigned int flexCount)
+                                    const float *flexWeights, unsigned int flexCount, const float *lightingOffset)
 {
     Mdl44CachedModel *cached=FindCached44(identity);
     if(!cached || cached->virtualModel.Groups().empty()) return false;
@@ -935,6 +935,7 @@ static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, c
         Vector position;
         for(int r=0;r<3;++r) position[r]=transform[r*4+3]+transform[r*4]*cached->header.illumposition[0]+
             transform[r*4+1]*cached->header.illumposition[1]+transform[r*4+2]*cached->header.illumposition[2];
+        if(lightingOffset) { Vector adjusted; for(int r=0;r<3;++r) adjusted[r]=lightingOffset[r*4+3]+lightingOffset[r*4]*position.x+lightingOffset[r*4+1]*position.y+lightingOffset[r*4+2]*position.z; position=adjusted; }
         LightingState_t light; ITexture *cubemap=LightcacheGet(position,light);
         if(cubemap) materialSystemInterface->BindLocalCubemap(cubemap);
         if(mat_fullbright.GetInt()==1) {
@@ -1061,12 +1062,17 @@ static bool Mdl44RigidEntityBounds(const char *name,float *mins,float *maxs)
     Mdl44RigidEntry *entry=GetRigidEntity44(name); float illumination[3];
     return entry && entry->cache && Mdl44MapCacheBounds(entry->cache,mins,maxs,illumination);
 }
-static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigned int skin)
+static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigned int skin,const float *lightingOffset)
 {
     Mdl44RigidEntry *entry=GetRigidEntity44(name);
     if(!entry || !entry->cache || !Mdl44MapCacheCreateGpu(entry->cache)) return false;
     // Rigid entities bypass the normal studio renderer's lighting setup.
     // Recompute it for this instance instead of inheriting the previous draw.
+    if(lightingOffset)
+    {
+        static bool loggedRelativeLighting=false;
+        if(!loggedRelativeLighting) { Msg("MDL 44 relative lighting: using reference for %s\n",name); loggedRelativeLighting=true; }
+    }
     if(g_pStudioRender && materialSystemInterface)
     {
         float mins[3],maxs[3],illumination[3];
@@ -1075,6 +1081,7 @@ static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigne
             Vector position;
             for(int r=0;r<3;++r) position[r]=transform[r*4+3]+transform[r*4]*illumination[0]+
                 transform[r*4+1]*illumination[1]+transform[r*4+2]*illumination[2];
+            if(lightingOffset) { Vector adjusted; for(int r=0;r<3;++r) adjusted[r]=lightingOffset[r*4+3]+lightingOffset[r*4]*position.x+lightingOffset[r*4+1]*position.y+lightingOffset[r*4+2]*position.z; position=adjusted; }
             LightingState_t state; ITexture *cubemap=LightcacheGet(position,state);
             if(cubemap) materialSystemInterface->BindLocalCubemap(cubemap);
             if(mat_fullbright.GetInt()==1)

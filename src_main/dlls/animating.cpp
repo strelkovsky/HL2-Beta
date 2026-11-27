@@ -47,8 +47,44 @@ class CIKSaveRestoreOps : public CClassPtrSaveRestoreOps
 static CIKSaveRestoreOps s_IKSaveRestoreOp;
 
 
+// An offset between a moving landmark and the baked-lighting reference.
+class CInfoLightingRelative : public CBaseEntity
+{
+public:
+    DECLARE_CLASS(CInfoLightingRelative,CBaseEntity);
+    DECLARE_DATADESC();
+    DECLARE_SERVERCLASS();
+    virtual void Activate();
+    virtual void SetTransmit(CCheckTransmitInfo *pInfo);
+private:
+    string_t m_strLightingLandmark;
+    CNetworkHandle(CBaseEntity,m_hLightingLandmark);
+};
+LINK_ENTITY_TO_CLASS(info_lighting_relative,CInfoLightingRelative);
+BEGIN_DATADESC(CInfoLightingRelative)
+    DEFINE_KEYFIELD(CInfoLightingRelative,m_strLightingLandmark,FIELD_STRING,"LightingLandmark"),
+    DEFINE_FIELD(CInfoLightingRelative,m_hLightingLandmark,FIELD_EHANDLE),
+END_DATADESC()
+IMPLEMENT_SERVERCLASS_ST(CInfoLightingRelative,DT_InfoLightingRelative)
+    SendPropEHandle(SENDINFO(m_hLightingLandmark)),
+END_SEND_TABLE()
+void CInfoLightingRelative::Activate()
+{
+    BaseClass::Activate();
+    m_hLightingLandmark=m_strLightingLandmark!=NULL_STRING ? gEntList.FindEntityByName(NULL,m_strLightingLandmark,NULL) : NULL;
+    if(m_hLightingLandmark) m_hLightingLandmark->AddEFlags(EFL_FORCE_CHECK_TRANSMIT);
+}
+void CInfoLightingRelative::SetTransmit(CCheckTransmitInfo *pInfo)
+{
+    if(pInfo->WillTransmit(entindex())) return;
+    BaseClass::SetTransmit(pInfo);
+    if(m_hLightingLandmark) m_hLightingLandmark->SetTransmit(pInfo);
+}
+
 BEGIN_DATADESC( CBaseAnimating )
 
+	DEFINE_KEYFIELD( CBaseAnimating, m_iszLightingOriginRelative, FIELD_STRING, "LightingOriginHack" ),
+	DEFINE_FIELD( CBaseAnimating, m_hLightingOriginRelative, FIELD_EHANDLE ),
 	DEFINE_FIELD( CBaseAnimating, m_flGroundSpeed, FIELD_FLOAT ),
 	DEFINE_FIELD( CBaseAnimating, m_flLastEventCheck, FIELD_TIME ),
 	DEFINE_FIELD( CBaseAnimating, m_bSequenceFinished, FIELD_BOOLEAN ),
@@ -85,6 +121,7 @@ void *SendProxy_ClientSideAnimation( const void *pStruct, const void *pVarData, 
 
 // SendTable stuff.
 IMPLEMENT_SERVERCLASS_ST(CBaseAnimating, DT_BaseAnimating)
+    SendPropEHandle(SENDINFO(m_hLightingOriginRelative)),
 	SendPropInt		( SENDINFO(m_nForceBone), 8, 0 ),
 	SendPropVector	( SENDINFO(m_vecForce), -1, SPROP_NOSCALE ),
 
@@ -118,6 +155,20 @@ CBaseAnimating::CBaseAnimating()
 
 	m_bClientSideAnimation = false;
 	m_pIk = NULL;
+}
+
+void CBaseAnimating::Activate()
+{
+    BaseClass::Activate();
+    m_hLightingOriginRelative=m_iszLightingOriginRelative!=NULL_STRING ? gEntList.FindEntityByName(NULL,m_iszLightingOriginRelative,NULL) : NULL;
+    if(m_hLightingOriginRelative && !FClassnameIs(m_hLightingOriginRelative,"info_lighting_relative")) m_hLightingOriginRelative=NULL;
+    if(m_hLightingOriginRelative) m_hLightingOriginRelative->AddEFlags(EFL_FORCE_CHECK_TRANSMIT);
+}
+void CBaseAnimating::SetTransmit(CCheckTransmitInfo *pInfo)
+{
+    if(pInfo->WillTransmit(entindex())) return;
+    BaseClass::SetTransmit(pInfo);
+    if(m_hLightingOriginRelative) m_hLightingOriginRelative->SetTransmit(pInfo);
 }
 
 CBaseAnimating::~CBaseAnimating()
