@@ -849,6 +849,8 @@ void CGameUI::HideGameUI()
 	const char *levelName = engine->GetLevelName();
 	if (levelName && levelName[0])
 	{
+		if ( g_pTaskbar )
+			g_pTaskbar->CloseNewGameDialog();
 		//show both the background panel and the taskbar 
 		staticPanel->SetVisible(false);
 		g_pTaskbar->SetVisible(false);
@@ -1011,6 +1013,8 @@ void CGameUI::DisconnectFromServer()
 //-----------------------------------------------------------------------------
 void CGameUI::LoadingStarted(const char *resourceType, const char *resourceName)
 {
+	if ( g_pTaskbar )
+		g_pTaskbar->CloseNewGameDialog();
 	g_VModuleLoader.PostMessageToAllModules(new KeyValues("LoadingStarted", "type", resourceType, "name", resourceName));
 
 	if (!stricmp(resourceType, "transition"))

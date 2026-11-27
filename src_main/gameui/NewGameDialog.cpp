@@ -172,7 +172,7 @@ void CNewGameDialog::OnCommand( const char *command )
   {
    const ConVar *unlock = cvar->FindVar( "sv_unlockedchapters" );
    if ( m_nSelectedChapter >= 0 && m_nSelectedChapter < m_nChapterCount && (!unlock || m_nSelectedChapter < max(1, unlock->GetInt())) )
-   { char cmd[256]; _snprintf( cmd, sizeof(cmd), "disconnect\nmaxplayers 1\ndeathmatch 0\nexec %s\n", m_chapters[m_nSelectedChapter] ); cmd[sizeof(cmd)-1]=0; engine->ClientCmd( cmd ); OnClose(); }
+   { char cmd[256]; _snprintf( cmd, sizeof(cmd), "disconnect\nmaxplayers 1\ndeathmatch 0\nexec %s\n", m_chapters[m_nSelectedChapter] ); cmd[sizeof(cmd)-1]=0; OnClose(); engine->ClientCmd( cmd ); }
    return;
   }
  }
@@ -207,8 +207,8 @@ void CNewGameDialog::OnCommand( const char *command )
 			sprintf(mapcommand, "disconnect\nmaxplayers 1\ndeathmatch 0\nskill %i\nmap %s\n", m_nPlayMode, ModInfo().GetStartMap() );
 		}
 
-		engine->ClientCmd( mapcommand );
 		OnClose();
+		engine->ClientCmd( mapcommand );
 	}
 	else
 	{

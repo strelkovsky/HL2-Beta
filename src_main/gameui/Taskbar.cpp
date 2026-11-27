@@ -914,6 +914,14 @@ void CTaskbar::OnOpenNewGameDialog()
 	m_hNewGameDialog->Activate();
 }
 
+void CTaskbar::CloseNewGameDialog()
+{
+	vgui::Frame *dialog = m_hNewGameDialog.Get();
+	m_hNewGameDialog = NULL;
+	if ( dialog && dialog->IsVisible() )
+		dialog->Close();
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------

@@ -43,6 +43,7 @@ public:
 
 	// game dialogs
 	void OnOpenNewGameDialog();
+	void CloseNewGameDialog();
 	void OnOpenLoadGameDialog();
 	void OnOpenSaveGameDialog();
 	void OnOpenOptionsDialog();
