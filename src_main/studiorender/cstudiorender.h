@@ -32,6 +32,7 @@ class ITexture;
 class CPixelWriter;
 class CMeshBuilder;
 class IMaterialVar;
+namespace StudioVertexView { class Mesh; }
 struct mstudioeyeball_t;
 struct eyeballstate_t;
 struct lightpos_t;
@@ -340,7 +341,7 @@ private:
 	void R_StudioBuildMeshStrips( studiomeshgroup_t* pMeshGroup,
 								OptimizedModel::StripGroupHeader_t *pStripGroup );
 	bool R_AddVertexToMesh( CMeshBuilder& meshBuilder, 
-		OptimizedModel::Vertex_t* pVertex, mstudiomesh_t* pMesh, bool hwSkin );
+		OptimizedModel::Vertex_t* pVertex, const StudioVertexView::Mesh& mesh, bool hwSkin );
 	void R_StudioDestroyStaticMeshes( int numStudioMeshes, studiomeshdata_t **ppStudioMeshes );
 	int R_StudioSetupModel ( int bodypart, int entity_body, mstudiomodel_t **pSubModel, 
 		studiohdr_t *pStudioHdr ) const;

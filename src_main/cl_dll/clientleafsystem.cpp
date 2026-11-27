@@ -173,6 +173,7 @@ private:
 
 		RENDER_FLAGS_UNDERWATER	= 0x8,
 		RENDER_FLAGS_ABOVEWATER	= 0x10,
+		RENDER_FLAGS_EXPLICIT_TWOPASS = 0x20,
 	};
 
 	// All the information associated with a particular handle
@@ -419,6 +420,17 @@ ClientRenderHandle_t CClientLeafSystem::CreateRenderableHandle( IClientRenderabl
 void CClientLeafSystem::ChangeRenderableRenderGroup( ClientRenderHandle_t handle, RenderGroup_t group )
 {
 	RenderableInfo_t &info = m_Renderables[handle];
+	// Explicit two-pass groups are supplied by native static models, whose
+	// material flags are not available through the legacy model_t.
+	if ( group == RENDER_GROUP_TWOPASS )
+	{
+		group = RENDER_GROUP_TRANSLUCENT_ENTITY;
+		info.m_Flags |= RENDER_FLAGS_TWOPASS | RENDER_FLAGS_EXPLICIT_TWOPASS;
+	}
+	else if ( info.m_Flags & RENDER_FLAGS_EXPLICIT_TWOPASS )
+	{
+		info.m_Flags &= ~( RENDER_FLAGS_TWOPASS | RENDER_FLAGS_EXPLICIT_TWOPASS );
+	}
 	info.m_RenderGroup = (unsigned char)group;
 }
 

@@ -43,8 +43,8 @@ namespace Vtx7Converter
         return Span( start, count, stride, size );
     }
 
-    inline bool Convert( const unsigned char *data, size_t size,
-                         std::vector<unsigned char> &output )
+    inline bool Process( const unsigned char *data, size_t size,
+                         std::vector<unsigned char> *destination )
     {
         const size_t fileHeader = 36, bodySize = 8, modelSize = 8;
         const size_t lodSize = 12, meshSize = 9, groupSize = 25;
@@ -114,6 +114,8 @@ namespace Vtx7Converter
             }
         }
 
+        if ( !destination ) return true;
+        std::vector<unsigned char> &output = *destination;
         output.assign( data, data + size );
         output.resize( size + extra, 0 );
         Write32( output.data(), 0, 6 );
@@ -143,6 +145,17 @@ namespace Vtx7Converter
             }
         }
         return true;
+    }
+
+    inline bool Validate( const unsigned char *data, size_t size )
+    {
+        return Process( data, size, NULL );
+    }
+
+    inline bool Convert( const unsigned char *data, size_t size,
+                         std::vector<unsigned char> &output )
+    {
+        return Process( data, size, &output );
     }
 }
 

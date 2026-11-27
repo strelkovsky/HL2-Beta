@@ -81,6 +81,7 @@
     <ClCompile Include="..\Public\Mathlib.cpp" />
     <ClCompile Include="..\public\tier0\memoverride.cpp" />
     <ClCompile Include=".\r_studio.cpp" />
+    <ClCompile Include=".\studiorender44.cpp" />
     <ClCompile Include=".\r_studiodecal.cpp" />
     <ClCompile Include=".\r_studiodraw.cpp" />
     <ClCompile Include=".\r_studioflex.cpp" />
@@ -99,6 +100,7 @@
     <ClInclude Include="..\Public\ImageLoader.h" />
     <ClInclude Include="..\Public\interface.h" />
     <ClInclude Include="..\Public\IStudioRender.h" />
+    <ClInclude Include="..\Public\istudiorender44.h" />
     <ClInclude Include="..\Public\MATHLIB.H" />
     <ClInclude Include="..\Public\measure_section.h" />
     <ClInclude Include="..\Public\model_types.h" />
@@ -106,6 +108,8 @@
     <ClInclude Include="..\Public\PixelWriter.h" />
     <ClInclude Include="..\Public\s3_intrf.h" />
     <ClInclude Include="..\Public\studio.h" />
+    <ClInclude Include="..\Public\studio_vertex_view.h" />
+    <ClInclude Include="..\Public\studio_material_view.h" />
     <ClInclude Include=".\StudioStats.h" />
     <ClInclude Include="..\Public\utllinkedlist.h" />
     <ClInclude Include="..\Public\UtlMemory.h" />

@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include "vtx7_converter.h"
+#include "mdl44_mapcache.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -3310,6 +3311,7 @@ void *CModelLoader::GetExtraData( model_t *model )
 //-----------------------------------------------------------------------------
 void CModelLoader::Studio_ReleaseModels( void )
 {
+	Mdl44MapCacheReleaseLevelGpu();
 	int		i;
 	model_t	*mod;
 	
@@ -3351,6 +3353,7 @@ void CModelLoader::Studio_RestoreModels( void )
 		
 		Studio_LoadStaticMeshes( mod );
 	}
+	Mdl44MapCacheRestoreLevelGpu();
 }
 
 //-----------------------------------------------------------------------------

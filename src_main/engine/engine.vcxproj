@@ -253,6 +253,7 @@
     <ClCompile Include=".\ModelInfo.cpp" />
     <ClInclude Include=".\ModelInfo.h" />
     <ClCompile Include=".\modelloader.cpp" />
+    <ClCompile Include=".\mdl44_check.cpp" />
     <ClCompile Include=".\net_chan.cpp" />
     <ClCompile Include=".\net_synctags.cpp" />
     <ClCompile Include=".\net_ws.cpp">
@@ -458,8 +459,12 @@
     <ClInclude Include="..\Public\mem_fgets.h" />
     <ClInclude Include=".\MODELGEN.H" />
     <ClInclude Include=".\modelloader.h" />
+    <ClInclude Include=".\mdl44_static.h" />
+    <ClInclude Include=".\mdl44_model.h" />
+    <ClInclude Include=".\mdl44_mapcache.h" />
     <ClInclude Include=".\vtx7_converter.h" />
     <ClInclude Include=".\vvd4_converter.h" />
+    <ClInclude Include=".\vvd4_native.h" />
     <ClInclude Include="..\public\modes.h" />
     <ClInclude Include=".\NET.H" />
     <ClInclude Include=".\net_synctags.h" />

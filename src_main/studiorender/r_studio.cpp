@@ -13,6 +13,8 @@
 //=============================================================================
 // r_studio.c: routines for setting up to draw 3DStudio models 
 #include "studio.h"
+#include "studio_vertex_view.h"
+#include "studio_material_view.h"
 #include "optimize.h"
 #include "materialsystem/imaterialsystem.h"
 #include "materialsystem/imaterialvar.h"
@@ -23,6 +25,8 @@
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+
+static_assert( sizeof( mstudiovertex_t ) == 64, "Unexpected studio 37 vertex layout" );
 
 // garymcthack - this should go elsewhere
 #define MAX_NUM_BONE_INDICES 4
@@ -95,7 +99,19 @@ IMaterial* CStudioRender::R_StudioSetupSkin( int index, IMaterial **ppMaterials,
 
 //=============================================================================
 
-static const char *GetTextureName( studiohdr_t *phdr, OptimizedModel::FileHeader_t *pVtxHeader, 
+static const char *Studio37MaterialName( const void *context, size_t index )
+{
+	const studiohdr_t *header = static_cast<const studiohdr_t *>( context );
+	return header->pTexture( static_cast<int>( index ) )->pszName();
+}
+
+static const char *Studio37MaterialPath( const void *context, size_t index )
+{
+	const studiohdr_t *header = static_cast<const studiohdr_t *>( context );
+	return header->pCdtexture( static_cast<int>( index ) );
+}
+
+static const char *GetTextureName( const StudioMaterialView &materials, OptimizedModel::FileHeader_t *pVtxHeader,
 								   int lodID, int inMaterialID )
 {
 	OptimizedModel::MaterialReplacementListHeader_t *materialReplacementList = 
@@ -111,7 +127,7 @@ static const char *GetTextureName( studiohdr_t *phdr, OptimizedModel::FileHeader
 			return str;
 		}
 	}
-	return phdr->pTexture( inMaterialID )->pszName();
+	return materials.MaterialName( inMaterialID );
 }
 
 /*
@@ -123,7 +139,9 @@ typedef IMaterial *IMaterialPtr;
 void CStudioRender::LoadMaterials( studiohdr_t *phdr, OptimizedModel::FileHeader_t *pVtxHeader,
 								   studioloddata_t &lodData, int lodID )
 {
-	lodData.numMaterials = phdr->numtextures;
+	StudioMaterialView materials( phdr, phdr->numtextures, phdr->numcdtextures,
+		Studio37MaterialName, Studio37MaterialPath );
+	lodData.numMaterials = static_cast<int>( materials.MaterialCount() );
 	if( lodData.numMaterials == 0 )
 	{
 		lodData.ppMaterials = NULL;
@@ -154,10 +172,10 @@ void CStudioRender::LoadMaterials( studiohdr_t *phdr, OptimizedModel::FileHeader
 			IMaterial *pMaterial = NULL;
 			bool found = false;
 			// search through all specified directories until a valid material is found
-			for( j = 0; j < phdr->numcdtextures && !found; j++ )
+			for( j = 0; j < static_cast<int>( materials.PathCount() ) && !found; j++ )
 			{
-				strcpy( szPath, phdr->pCdtexture( j ) );
-				const char *textureName = GetTextureName( phdr, pVtxHeader, lodID, i );
+				strcpy( szPath, materials.Path( j ) );
+				const char *textureName = GetTextureName( materials, pVtxHeader, lodID, i );
 				strcat( szPath, textureName );
 
 				pMaterial = m_pMaterialSystem->FindMaterial( szPath, &found, false );
@@ -166,10 +184,10 @@ void CStudioRender::LoadMaterials( studiohdr_t *phdr, OptimizedModel::FileHeader
 			{
 				// hack - if it isn't found, go through the motions of looking for it again
 				// so that the materialsystem will give an error.
-				for( j = 0; j < phdr->numcdtextures; j++ )
+				for( j = 0; j < static_cast<int>( materials.PathCount() ); j++ )
 				{
-					strcpy( szPath, phdr->pCdtexture( j ) );
-					const char *textureName = GetTextureName( phdr, pVtxHeader, lodID, i );
+					strcpy( szPath, materials.Path( j ) );
+					const char *textureName = GetTextureName( materials, pVtxHeader, lodID, i );
 					strcat( szPath, textureName );
 					m_pMaterialSystem->FindMaterial( szPath, NULL, true );
 				}
@@ -218,23 +236,26 @@ void CStudioRender::LoadMaterials( studiohdr_t *phdr, OptimizedModel::FileHeader
 // Adds a vertex to the meshbuilder...
 //-----------------------------------------------------------------------------
 bool CStudioRender::R_AddVertexToMesh( CMeshBuilder& meshBuilder, 
-	OptimizedModel::Vertex_t* pVertex, mstudiomesh_t* pMesh, bool hwSkin )
+	OptimizedModel::Vertex_t* pVertex, const StudioVertexView::Mesh& mesh, bool hwSkin )
 {
 	bool ok = true;
 	int idx = pVertex->origMeshVertID;
 
-	mstudiovertex_t &vert = *pMesh->Vertex(idx);
+	StudioVertexView::Vertex vert;
+	const float *tangent = mesh.Tangent( idx );
+	if ( !tangent || !mesh.Read( idx, vert ) )
+		return false;
 
-	meshBuilder.Position3fv( vert.m_vecPosition.Base() );
-	meshBuilder.Normal3fv( vert.m_vecNormal.Base() );
-	meshBuilder.TexCoord2fv( 0, vert.m_vecTexCoord.Base() );
+	meshBuilder.Position3fv( vert.position );
+	meshBuilder.Normal3fv( vert.normal );
+	meshBuilder.TexCoord2fv( 0, vert.texcoord );
 
 #ifdef _DEBUG
 //	float w = pMesh->TangentS( idx )->w;
 //	Assert( w == 1.0f || w == -1.0f );
 #endif
 	// send down tangent S as a 4D userdata vect.
-	meshBuilder.UserData( (*pMesh->TangentS(idx)).Base() );
+	meshBuilder.UserData( tangent );
 
 	// Just in case we get hooked to a material that wants per-vertex color
 	meshBuilder.Color4ub( 255, 255, 255, 255 );
@@ -247,7 +268,6 @@ bool CStudioRender::R_AddVertexToMesh( CMeshBuilder& meshBuilder,
 		// We have to do this because since we're potentially dropping bones
 		// to get them to fit in hardware, we'll need to renormalize based on
 		// the actual total.
-		mstudioboneweight_t *pBoneWeight = pMesh->BoneWeights(idx);
 
 		// NOTE: We use pVertex->numbones because that's the number of bones actually influencing this
 		// vertex. Note that pVertex->numBones is not necessary the *desired* # of bones influencing this
@@ -255,12 +275,12 @@ bool CStudioRender::R_AddVertexToMesh( CMeshBuilder& meshBuilder,
 		float totalWeight = 0;
 		for (i = 0; i < pVertex->numBones; ++i)
 		{
-			totalWeight += pBoneWeight->weight[pVertex->boneWeightIndex[i]];
+			totalWeight += vert.weights[pVertex->boneWeightIndex[i]];
 		}
 
 		// The only way we should not add up to 1 is if there's more than 3 *desired* bones
 		// and more than 1 *actual* bone (we can have 0	vertex bones in the case of static props
-		if ( (pVertex->numBones > 0) && (pBoneWeight->numbones <= 3) && fabs(totalWeight - 1.0f) > 1e-5 )
+		if ( (pVertex->numBones > 0) && (vert.boneCount <= 3) && fabs(totalWeight - 1.0f) > 1e-5 )
 		{
 			ok = false;
 			totalWeight = 1.0f;
@@ -285,7 +305,7 @@ bool CStudioRender::R_AddVertexToMesh( CMeshBuilder& meshBuilder,
 			}
 			else
 			{
-				float weight = pBoneWeight->weight[pVertex->boneWeightIndex[i]];
+				float weight = vert.weights[pVertex->boneWeightIndex[i]];
 				meshBuilder.BoneWeight( i, weight * invTotalWeight );
 				meshBuilder.BoneMatrix( i, pVertex->boneID[i] );
 			}
@@ -326,6 +346,10 @@ void CStudioRender::R_StudioBuildMeshGroup( studiomeshgroup_t* pMeshGroup,
 	pMeshGroup->m_pColorMesh = NULL;
 
 	bool hwSkin = (pMeshGroup->m_Flags & MESHGROUP_IS_HWSKINNED) != 0;
+	const bool hasVertices = hwSkin && pMesh->numvertices > 0;
+	StudioVertexView::Mesh mesh( StudioVertexView::Mesh::Studio37,
+		hasVertices ? pMesh->Vertex(0) : NULL, hasVertices ? pMesh->TangentS(0)->Base() : NULL,
+		hasVertices ? pMesh->numvertices : 0 );
 
 	// This mesh could have tristrips or trilists in it
 	CMeshBuilder meshBuilder;
@@ -338,7 +362,7 @@ void CStudioRender::R_StudioBuildMeshGroup( studiomeshgroup_t* pMeshGroup,
 	{
 		for (i = 0; i < pStripGroup->numVerts; ++i)
 		{
-			if (!R_AddVertexToMesh( meshBuilder, pStripGroup->pVertex(i), pMesh, hwSkin ))
+			if (!R_AddVertexToMesh( meshBuilder, pStripGroup->pVertex(i), mesh, hwSkin ))
 				ok = false;
 		}
 	}

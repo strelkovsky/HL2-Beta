@@ -34,6 +34,9 @@
 #include "render.h"
 #include "cmodel_engine.h"
 #include "ModelInfo.h"
+#include "mdl44_mapcache.h"
+#include "l_studio.h"
+#include "istudiorender.h"
 #include "cdll_engine_int.h"
 #include "tier0/dbg.h"
 
@@ -44,6 +47,7 @@
 static ConVar r_DrawSpecificStaticProp( "r_DrawSpecificStaticProp", "-1" );
 static ConVar r_drawstaticprops( "r_drawstaticprops", "1" );
 static ConVar r_colorstaticprops( "r_colorstaticprops", "0" );
+static ConVar r_mdl44_precache( "r_mdl44_precache", "0", 0, "Experimentally cache release static-model data and GPU meshes." );
 static ConVar vcollide_wireframe( "vcollide_wireframe", "0" );
 
 
@@ -164,7 +168,7 @@ public:
 	virtual bool			UsesFrameBufferTexture();
 
 public:
-	bool Init( int index, StaticPropLump_t &lump, model_t *pModel );
+	bool Init( int index, StaticPropLump_t &lump, model_t *pModel, Mdl44MapCache *pModel44 );
 
 	// KD Tree
 	void InsertPropIntoKDTree();
@@ -182,6 +186,9 @@ public:
 	void CleanUpRenderHandle( );
 	ClientRenderHandle_t GetRenderHandle() const;
 	void SetAlpha( unsigned char alpha );
+	bool HasMdl44() const { return m_pModel44 != NULL; }
+	bool CanDrawMdl44() const { return Mdl44MapCacheCanDraw( m_pModel44, m_Skin ); }
+	RenderGroup_t Mdl44RenderGroup() const;
 
 	// Create VPhysics representation
 	void CreateVPhysics( IPhysicsEnvironment *physenv, IVPhysicsKeyHandler *pDefaults, void *pGameData );
@@ -190,6 +197,7 @@ private:
 	Vector					m_Origin;
 	QAngle					m_Angles;
 	model_t*				m_pModel;
+	Mdl44MapCache*		m_pModel44;
 	SpatialPartitionHandle_t	m_Partition;
 	ModelInstanceHandle_t	m_ModelInstance;
 	unsigned char			m_Alpha;
@@ -231,6 +239,8 @@ public:
 	virtual void LevelInitClient();
 	virtual void LevelShutdown();
 	virtual void LevelShutdownClient();
+	void ReleaseMdl44Gpu();
+	void RestoreMdl44Gpu();
 	virtual bool IsPropInPVS( IHandleEntity *pHandleEntity, const byte *pVis ) const;
 	virtual ICollideable *GetStaticProp( IHandleEntity *pHandleEntity );
 	virtual void RecomputeStaticLighting( );
@@ -269,6 +279,7 @@ private:
 	struct StaticPropDict_t
 	{
 		model_t* m_pModel;
+		Mdl44MapCache* m_pModel44;
 	};
 
 	// Static props that fade use this data to fade
@@ -300,13 +311,16 @@ static CStaticPropMgr	s_StaticPropMgr;
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CStaticPropMgr, IStaticPropMgrClient, INTERFACEVERSION_STATICPROPMGR_CLIENT, s_StaticPropMgr);
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CStaticPropMgr, IStaticPropMgrServer, INTERFACEVERSION_STATICPROPMGR_SERVER, s_StaticPropMgr);
 
+void Mdl44MapCacheReleaseLevelGpu() { s_StaticPropMgr.ReleaseMdl44Gpu(); }
+void Mdl44MapCacheRestoreLevelGpu() { s_StaticPropMgr.RestoreMdl44Gpu(); }
+
 
 //-----------------------------------------------------------------------------
 //
 // Static prop
 //
 //-----------------------------------------------------------------------------
-CStaticProp::CStaticProp() : m_pModel(0), m_Alpha(255)
+CStaticProp::CStaticProp() : m_pModel(0), m_pModel44(0), m_Alpha(255)
 {
 	m_ModelInstance = MODEL_INSTANCE_INVALID;
 	m_Partition = PARTITION_INVALID_HANDLE;
@@ -328,7 +342,7 @@ CStaticProp::~CStaticProp()
 //-----------------------------------------------------------------------------
 // Initialization
 //-----------------------------------------------------------------------------
-bool CStaticProp::Init( int index, StaticPropLump_t &lump, model_t *pModel )
+bool CStaticProp::Init( int index, StaticPropLump_t &lump, model_t *pModel, Mdl44MapCache *pModel44 )
 {
 	m_EntHandle = index | STATICPROP_EHANDLE_MASK; 
 	m_Partition = PARTITION_INVALID_HANDLE;
@@ -336,6 +350,7 @@ bool CStaticProp::Init( int index, StaticPropLump_t &lump, model_t *pModel )
 	VectorCopy( lump.m_Origin, m_Origin );
 	VectorCopy( lump.m_Angles, m_Angles );
 	m_pModel = pModel;
+	m_pModel44 = pModel44;
 	m_FirstLeaf = lump.m_FirstLeaf;
 	m_LeafCount = lump.m_LeafCount;
 	m_nSolidType = lump.m_Solid;
@@ -344,6 +359,8 @@ bool CStaticProp::Init( int index, StaticPropLump_t &lump, model_t *pModel )
 
 	// Cache the collision bounding box since it'll never change.
 	modelinfo->GetModelRenderBounds( m_pModel, 0, m_RenderBBoxMin, m_RenderBBoxMax );
+	Vector releaseIllumination;
+	const bool hasReleaseBounds = Mdl44MapCacheBounds( m_pModel44, m_RenderBBoxMin.Base(), m_RenderBBoxMax.Base(), releaseIllumination.Base() );
 
 	// Cache the model to world matrix since it never changes.
 	AngleMatrix( lump.m_Angles, lump.m_Origin, m_ModelToWorld );
@@ -356,7 +373,8 @@ bool CStaticProp::Init( int index, StaticPropLump_t &lump, model_t *pModel )
 	}
 	else
 	{
-		modelinfo->GetIlluminationPoint( m_pModel, m_Origin, m_Angles, &m_LightingOrigin );
+		if ( hasReleaseBounds ) VectorTransform( releaseIllumination, m_ModelToWorld, m_LightingOrigin );
+		else modelinfo->GetIlluminationPoint( m_pModel, m_Origin, m_Angles, &m_LightingOrigin );
 	}
 
 	return true;
@@ -440,7 +458,17 @@ const QAngle& CStaticProp::GetRenderAngles( void )
 
 bool CStaticProp::IsTransparent( void )
 {
+	if ( CanDrawMdl44() ) return m_Alpha < 255 || Mdl44MapCacheHasTranslucent( m_pModel44 );
 	return (m_Alpha < 255) || modelinfo->IsTranslucent(m_pModel);
+}
+
+RenderGroup_t CStaticProp::Mdl44RenderGroup() const
+{
+	if ( m_Alpha == 0 ) return RENDER_GROUP_OPAQUE_ENTITY;
+	if ( m_Alpha < 255 ) return RENDER_GROUP_TRANSLUCENT_ENTITY;
+	if ( Mdl44MapCacheHasTranslucent( m_pModel44 ) )
+		return Mdl44MapCacheHasOpaque( m_pModel44 ) ? RENDER_GROUP_TWOPASS : RENDER_GROUP_TRANSLUCENT_ENTITY;
+	return RENDER_GROUP_OPAQUE_ENTITY;
 }
 
 bool CStaticProp::ShouldDraw()
@@ -672,6 +700,7 @@ const Vector& CStaticProp::WorldSpaceSurroundingMaxs() const
 
 bool CStaticProp::ShouldReceiveShadows()
 { 
+	if ( Mdl44MapCacheCanDraw( m_pModel44, m_Skin ) ) return false;
 	return g_pMaterialSystemHardwareConfig->GetDXSupportLevel() >= 90; 
 }
 
@@ -736,6 +765,29 @@ int CStaticProp::DrawModel( int flags )
 
 	if ((m_Alpha == 0) || (!m_pModel))
 		return 0;
+
+	if ( Mdl44MapCacheCanDraw( m_pModel44, m_Skin ) )
+	{
+		if ( !( flags & STUDIO_RENDER ) ) return 0;
+		if ( m_LightCacheHandle && g_pStudioRender )
+		{
+			LightingState_t light;
+			ITexture *cubemap = LightcacheGet( m_LightCacheHandle, light );
+			g_pStudioRender->SetAmbientLightColors( light.r_boxcolor, light.totalboxcolor );
+			materialSystemInterface->SetAmbientLight( 0.0f, 0.0f, 0.0f );
+			if ( cubemap ) materialSystemInterface->BindLocalCubemap( cubemap );
+			for ( int i = 0; i < g_pMaterialSystemHardwareConfig->MaxNumLights(); ++i )
+			{
+				LightDesc_t disabled;
+				disabled.m_Type = MATERIAL_LIGHT_DISABLE;
+				materialSystemInterface->SetLight( i, disabled );
+			}
+		}
+		Mdl44DrawPass pass = MDL44_DRAW_ALL;
+		if ( flags & STUDIO_TWOPASS )
+			pass = ( flags & STUDIO_TRANSPARENCY ) ? MDL44_DRAW_TRANSLUCENT : MDL44_DRAW_OPAQUE;
+		return Mdl44MapCacheDraw( m_pModel44, &m_ModelToWorld[0][0], m_Skin, m_Alpha / 255.0f, pass ) ? 1 : 0;
+	}
 
 	if( r_colorstaticprops.GetBool() )
 	{
@@ -969,6 +1021,7 @@ void CStaticPropMgr::UnserializeModelDict( CUtlBuffer& buf )
 		buf.Get( &lump, sizeof(StaticPropDictLump_t) );
 		
 		StaticPropDict_t dict;
+		dict.m_pModel44 = r_mdl44_precache.GetBool() ? Mdl44MapCacheCreate( lump.m_Name ) : NULL;
 		dict.m_pModel = (model_t *)modelloader->GetModelForName(
 			lump.m_Name, IModelLoader::FMODELLOADER_STATICPROP );
 		m_StaticPropDict.AddToTail( dict );
@@ -1013,7 +1066,7 @@ void CStaticPropMgr::UnserializeModels( CUtlBuffer& buf, int lumpSize )
 		if ( version == 5 )
 			buf.GetFloat(); // Version 5 adds a forced-fade scale after the version 4 fields.
 
-		m_StaticProps[i].Init( i, lump, m_StaticPropDict[lump.m_PropType].m_pModel );
+		m_StaticProps[i].Init( i, lump, m_StaticPropDict[lump.m_PropType].m_pModel, m_StaticPropDict[lump.m_PropType].m_pModel44 );
 
 		// For distance-based fading, keep a list of the things that need
 		// to be faded out. Not sure if this is the optimal way of doing it
@@ -1116,6 +1169,17 @@ void CStaticPropMgr::LevelInitClient()
 #ifndef SWDS
 	if (cls.state != ca_dedicated)
 	{
+		// Material classification must be known before the client creates render handles.
+		if ( r_mdl44_precache.GetBool() )
+		{
+			int candidates = 0, uploaded = 0;
+			for ( int i = 0; i < m_StaticPropDict.Count(); ++i )
+			{
+				Mdl44MapCache *cache = m_StaticPropDict[i].m_pModel44;
+				if ( cache ) { ++candidates; if ( Mdl44MapCacheCreateGpu( cache ) ) ++uploaded; }
+			}
+			Msg( "MDL 44 static prop cache: %d loaded, %d uploaded\n", candidates, uploaded );
+		}
 		// Since the client will be ready at a later time than the server
 		// to set up its data, we need a separate call to handle that
 		int nCount = m_StaticProps.Count();
@@ -1125,6 +1189,8 @@ void CStaticPropMgr::LevelInitClient()
 
 			// Add the prop to all the leaves it lies in
 			ClientRenderHandle_t handle = clientleafsystem->CreateRenderableHandle( &m_StaticProps[i], true );
+			if ( prop.CanDrawMdl44() )
+				clientleafsystem->ChangeRenderableRenderGroup( handle, prop.Mdl44RenderGroup() );
 			clientleafsystem->AddRenderableToLeaves( handle, prop.LeafCount(), (unsigned short*)&m_StaticPropLeaves[prop.FirstLeaf()] ); 
 			m_StaticProps[i].SetRenderHandle( handle );
 		}
@@ -1147,6 +1213,7 @@ void CStaticPropMgr::LevelShutdownClient()
 	{
 		m_StaticProps[i].CleanUpRenderHandle( );
 	}
+	ReleaseMdl44Gpu();
 
 #ifndef SWDS
 	// Make sure static prop lightcache is reset
@@ -1154,6 +1221,33 @@ void CStaticPropMgr::LevelShutdownClient()
 #endif
 
 	m_bClientInitialized = false;
+}
+
+void CStaticPropMgr::ReleaseMdl44Gpu()
+{
+	int released = 0;
+	for ( int i = 0; i < m_StaticPropDict.Count(); ++i )
+		if ( Mdl44MapCacheReleaseGpu( m_StaticPropDict[i].m_pModel44 ) ) ++released;
+	if ( released ) Msg( "MDL 44 static prop cache: %d GPU models released\n", released );
+}
+
+void CStaticPropMgr::RestoreMdl44Gpu()
+{
+	if ( !m_bClientInitialized ) return;
+	int restored = 0;
+	for ( int i = 0; i < m_StaticPropDict.Count(); ++i )
+		if ( m_StaticPropDict[i].m_pModel44 && Mdl44MapCacheCreateGpu( m_StaticPropDict[i].m_pModel44 ) ) ++restored;
+#ifndef SWDS
+	for ( int i = 0; i < m_StaticProps.Count(); ++i )
+	{
+		CStaticProp &prop = m_StaticProps[i];
+		if ( !prop.HasMdl44() || prop.GetRenderHandle() == INVALID_CLIENT_RENDER_HANDLE ) continue;
+		const RenderGroup_t group = prop.CanDrawMdl44() ? prop.Mdl44RenderGroup() :
+			( prop.IsTransparent() ? RENDER_GROUP_TRANSLUCENT_ENTITY : RENDER_GROUP_OPAQUE_ENTITY );
+		clientleafsystem->ChangeRenderableRenderGroup( prop.GetRenderHandle(), group );
+	}
+#endif
+	if ( restored ) Msg( "MDL 44 static prop cache: %d GPU models restored\n", restored );
 }
 
 void CStaticPropMgr::LevelShutdown()
@@ -1172,6 +1266,7 @@ void CStaticPropMgr::LevelShutdown()
 	int i;
 	for ( i = m_StaticPropDict.Count(); --i >= 0; )
 	{
+		Mdl44MapCacheDestroy( m_StaticPropDict[i].m_pModel44 );
 		modelloader->ReleaseModel( m_StaticPropDict[i].m_pModel, IModelLoader::FMODELLOADER_STATICPROP );
 	}
 
@@ -1327,14 +1422,14 @@ void CStaticPropMgr::ComputePropOpacity( const Vector &viewOrigin )
 		{
 			if ((fade.m_MinDistSq >= 0) && (sqDist > fade.m_MinDistSq))
 			{
-				clientleafsystem->ChangeRenderableRenderGroup( renderHandle, RENDER_GROUP_TRANSLUCENT_ENTITY );
 				prop.SetAlpha( fade.m_FalloffFactor * (fade.m_MaxDistSq - sqDist) );
+				clientleafsystem->ChangeRenderableRenderGroup( renderHandle, prop.CanDrawMdl44() ? prop.Mdl44RenderGroup() : RENDER_GROUP_TRANSLUCENT_ENTITY );
 			}
 			else
 			{
 				// We can stick the prop into the opaque list
-				clientleafsystem->ChangeRenderableRenderGroup( renderHandle, RENDER_GROUP_OPAQUE_ENTITY );
 				prop.SetAlpha( 255 );
+				clientleafsystem->ChangeRenderableRenderGroup( renderHandle, prop.CanDrawMdl44() ? prop.Mdl44RenderGroup() : RENDER_GROUP_OPAQUE_ENTITY );
 			}
 		}
 		else
