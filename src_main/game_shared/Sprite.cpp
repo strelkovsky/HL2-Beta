@@ -116,6 +116,12 @@ void CSprite::Spawn( void )
 	SetMoveType( MOVETYPE_NONE );
 	m_flFrame = 0;
 
+#if !defined( CLIENT_DLL )
+    // The retail opening map still names this obsolete .spr file.
+    // Use the shipped smoke sprite when the map entity is spawned.
+    if (GetModelName() != NULL_STRING && !Q_stricmp(STRING(GetModelName()), "sprites/XSsmke1.spr"))
+        SetModelName(MAKE_STRING("sprites/steam1.vmt"));
+#endif
 	Precache();
 	SetModel( STRING( GetModelName() ) );
 

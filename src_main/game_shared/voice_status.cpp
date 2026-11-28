@@ -283,22 +283,22 @@ void CVoiceStatus::VidInit()
 	if( m_pSpeakerLabelIcon = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4" ) )
 		m_pSpeakerLabelIcon->SetColor( Color(255,255,255,254) );		// Give just a tiny bit of translucency so software draws correctly.
 
-	if (m_pScoreboardNeverSpoken = vgui_LoadMaterial(m_pParentPanel, "voice/640_speaker1"))
+	if (m_pScoreboardNeverSpoken = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4"))
 		m_pScoreboardNeverSpoken->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 
-	if(m_pScoreboardNotSpeaking = vgui_LoadMaterial(m_pParentPanel, "voice/640_speaker2"))
+	if(m_pScoreboardNotSpeaking = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4"))
 		m_pScoreboardNotSpeaking->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 	
-	if(m_pScoreboardSpeaking = vgui_LoadMaterial(m_pParentPanel, "voice/640_speaker3"))
+	if(m_pScoreboardSpeaking = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4"))
 		m_pScoreboardSpeaking->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 	
-	if(m_pScoreboardSpeaking2 = vgui_LoadMaterial(m_pParentPanel, "voice/640_speaker4"))
+	if(m_pScoreboardSpeaking2 = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4"))
 		m_pScoreboardSpeaking2->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 	
-	if(m_pScoreboardSquelch  = vgui_LoadMaterial(m_pParentPanel, "voice/icntlk_squelch"))
+	if(m_pScoreboardSquelch  = vgui_LoadMaterial(m_pParentPanel, "voice/icntlk_pl"))
 		m_pScoreboardSquelch->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 
-	if(m_pScoreboardBanned = vgui_LoadMaterial(m_pParentPanel, "voice/640_voiceblocked"))
+	if(m_pScoreboardBanned = vgui_LoadMaterial(m_pParentPanel, "voice/speaker4"))
 		m_pScoreboardBanned->SetColor(Color(255,255,255,254));	// Give just a tiny bit of translucency so software draws correctly.
 }
 

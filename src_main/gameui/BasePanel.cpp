@@ -129,7 +129,7 @@ void CBasePanel::ApplySchemeSettings(IScheme *pScheme)
 	bimage.imageID = surface()->CreateNewTextureID();
 
 	char filename[512];
-	sprintf(filename, "console/console_background" );
+	sprintf(filename, "console/background01" );
 	surface()->DrawSetTextureFile(bimage.imageID, filename, hardwareFilter, false);
 	surface()->DrawGetTextureSize(bimage.imageID, bimage.width, bimage.height);
 

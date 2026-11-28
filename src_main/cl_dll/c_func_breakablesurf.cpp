@@ -55,18 +55,6 @@ enum WinEdge_t
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectBreakableSurface )
 CLIENTEFFECT_MATERIAL( "models/brokenglass/glassbroken_solid" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_01a" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_01b" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_01c" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_01d" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_02a" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_02b" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_02c" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_02d" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_03a" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_03b" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_03c" )
-CLIENTEFFECT_MATERIAL( "models/brokentile/tilebroken_03d" )
 CLIENTEFFECT_MATERIAL( "models/brokenglass/glassbroken_01a" )
 CLIENTEFFECT_MATERIAL( "models/brokenglass/glassbroken_01b" )
 CLIENTEFFECT_MATERIAL( "models/brokenglass/glassbroken_01c" )
@@ -439,20 +427,20 @@ void C_BreakableSurface::OnDataChanged( DataUpdateType_t updateType )
 		// Load the edge types and styles for the specific surface type
 		if (m_nSurfaceType == SHATTERSURFACE_TILE)
 		{
-			InitMaterial(EDGE_NONE,	0,"models/brokentile/tilebroken_03a");
-			InitMaterial(EDGE_FULL,	0,"models/brokentile/tilebroken_03b");
-			InitMaterial(EDGE_LEFT,	0,"models/brokentile/tilebroken_03c");
-			InitMaterial(EDGE_RIGHT,0,"models/brokentile/tilebroken_03d");
+			InitMaterial(EDGE_NONE,	0,"models/brokenglass/glassbroken_03a");
+			InitMaterial(EDGE_FULL,	0,"models/brokenglass/glassbroken_03b");
+			InitMaterial(EDGE_LEFT,	0,"models/brokenglass/glassbroken_03c");
+			InitMaterial(EDGE_RIGHT,0,"models/brokenglass/glassbroken_03d");
 
-			InitMaterial(EDGE_NONE,	1,"models/brokentile/tilebroken_02a");
-			InitMaterial(EDGE_FULL,	1,"models/brokentile/tilebroken_02b");
-			InitMaterial(EDGE_LEFT,	1,"models/brokentile/tilebroken_02c");
-			InitMaterial(EDGE_RIGHT,1,"models/brokentile/tilebroken_02d");
+			InitMaterial(EDGE_NONE,	1,"models/brokenglass/glassbroken_02a");
+			InitMaterial(EDGE_FULL,	1,"models/brokenglass/glassbroken_02b");
+			InitMaterial(EDGE_LEFT,	1,"models/brokenglass/glassbroken_02c");
+			InitMaterial(EDGE_RIGHT,1,"models/brokenglass/glassbroken_02d");
 
-			InitMaterial(EDGE_NONE,	2,"models/brokentile/tilebroken_01a");
-			InitMaterial(EDGE_FULL,	2,"models/brokentile/tilebroken_01b");
-			InitMaterial(EDGE_LEFT,	2,"models/brokentile/tilebroken_01c");
-			InitMaterial(EDGE_RIGHT,2,"models/brokentile/tilebroken_01d");
+			InitMaterial(EDGE_NONE,	2,"models/brokenglass/glassbroken_01a");
+			InitMaterial(EDGE_FULL,	2,"models/brokenglass/glassbroken_01b");
+			InitMaterial(EDGE_LEFT,	2,"models/brokenglass/glassbroken_01c");
+			InitMaterial(EDGE_RIGHT,2,"models/brokenglass/glassbroken_01d");
 		}
 		else 
 		{

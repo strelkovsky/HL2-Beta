@@ -493,6 +493,13 @@ void CMatSystemTexture::SetMaterial( const char *pFileName )
 		Msg( "--- Missing Vgui material %s\n", pFileName );
 	}
 
+    // Retail chapter VMTs omit these UI render flags. Apply them at runtime
+    // rather than changing the shipped materials.
+    if (bFound && !_strnicmp(pFileName, "vgui/chapters/chapter", 21))
+    {
+        pMaterial->SetMaterialVarFlag(MATERIAL_VAR_VERTEXCOLOR, true);
+        pMaterial->SetMaterialVarFlag(MATERIAL_VAR_IGNOREZ, true);
+    }
 	SetMaterial( pMaterial );
 }
 
