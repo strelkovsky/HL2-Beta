@@ -40,6 +40,9 @@
 #include "cdll_engine_int.h"
 #include "tier0/dbg.h"
 
+extern int d_lightstylevalue[256];
+extern float g_lightmapScale;
+
 
 //-----------------------------------------------------------------------------
 // Convars!
@@ -776,12 +779,19 @@ int CStaticProp::DrawModel( int flags )
 			g_pStudioRender->SetAmbientLightColors( light.r_boxcolor, light.totalboxcolor );
 			materialSystemInterface->SetAmbientLight( 0.0f, 0.0f, 0.0f );
 			if ( cubemap ) materialSystemInterface->BindLocalCubemap( cubemap );
-			for ( int i = 0; i < g_pMaterialSystemHardwareConfig->MaxNumLights(); ++i )
-			{
-				LightDesc_t disabled;
-				disabled.m_Type = MATERIAL_LIGHT_DISABLE;
-				materialSystemInterface->SetLight( i, disabled );
-			}
+            // The MDL 44 path has no baked per-vertex static-prop lighting.
+            // Include the cache's selected lights as well as its ambient cube.
+            LightDesc_t lights[MAXLOCALLIGHTS];
+            int count = 0;
+            for ( int i = 0; i < light.numlights && count < MAXLOCALLIGHTS; ++i )
+            {
+                if ( !WorldLightToMaterialLight( light.locallight[i], lights[count] ) ) continue;
+                const int style = light.locallight[i]->style;
+                const float scale = (style >= 0 && style < 256) ? g_lightmapScale * d_lightstylevalue[style] / 264.0f : 1.0f;
+                for ( int c = 0; c < 3; ++c ) lights[count].m_Color[c] *= scale;
+                ++count;
+            }
+            g_pStudioRender->SetLocalLights( count, lights );
 		}
 		Mdl44DrawPass pass = MDL44_DRAW_ALL;
 		if ( flags & STUDIO_TWOPASS )

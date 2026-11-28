@@ -8,6 +8,8 @@ int main(int argc,char **argv) {
  std::printf("controllers=%zu descriptions=%zu rules=%zu flex_meshes=%zu\n",data.controllers.size(),data.descriptions.size(),data.rules.size(),data.meshes.size());
  assert(data.controllers.size()==54 && data.descriptions.size()==71 && data.rules.size()==63 && !data.meshes.empty());
  std::printf("eyes=%zu eye_meshes=%zu\n",data.eyes.size(),data.eyeMeshes.size());assert(data.eyes.size()==2 && data.eyeMeshes.size()==2);
+ assert(data.mouths.size()==1 && data.mouths[0].bone==6 && data.descriptions[data.mouths[0].flexdesc]=="mouth");
+ auto invalidMouth=bytes; std::memset(invalidMouth.data()+292,0xff,4); Mdl44Flex::Data rejected; assert(!Mdl44Flex::Parse(invalidMouth.data(),invalidMouth.size(),rejected));
  std::vector<float> controls(data.controllers.size(),0),output; assert(Mdl44Flex::Evaluate(data,controls.data(),controls.size(),output));
  int jaw=-1;for(size_t i=0;i<data.controllers.size();++i)if(data.controllers[i].name=="jaw_drop")jaw=(int)i;assert(jaw>=0);auto baseline=output;
  controls[jaw]=1;assert(Mdl44Flex::Evaluate(data,controls.data(),controls.size(),output));int changed=0;for(size_t i=0;i<output.size();++i)if(std::fabs(output[i]-baseline[i])>0.0001f)++changed;std::printf("jaw_drop changes %d flex outputs\n",changed);assert(changed>0);

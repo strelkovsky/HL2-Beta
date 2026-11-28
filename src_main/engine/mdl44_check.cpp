@@ -307,6 +307,8 @@ static void Studio44SetEyeMaterial(IMaterial *material, const Studio44EyeState &
     var=material->FindVar("$irisv",&found,false); if(found) var->SetVecValue(eye.v,4);
 }
 
+struct Studio44MouthState { Vector forward; float illumination; bool valid; Studio44MouthState() : illumination(0), valid(false) {} };
+
 // The owner must be destroyed before StudioRender and the material system.
 class Studio44MeshOwner
 {
@@ -367,7 +369,7 @@ public:
     }
     bool DrawSkinned( const float *transform, unsigned int skin, const float *bones, unsigned int boneCount,
                       const Mdl44Flex::Data *flexData = NULL, const std::vector<float> *flexWeights = NULL,
-                      const std::vector<Studio44EyeState> *eyes = NULL ) const
+                      const std::vector<Studio44EyeState> *eyes = NULL, const Studio44MouthState *mouth = NULL ) const
     {
         bool drawn = false;
         for ( size_t i=0; i<m_handles.size(); ++i )
@@ -380,6 +382,13 @@ public:
                     const Mdl44Flex::EyeMesh &binding=flexData->eyeMeshes[j];
                     if(binding.body==entry.body && binding.model==entry.model && binding.mesh==entry.mesh && binding.eye<eyes->size() && (*eyes)[binding.eye].valid)
                     { Studio44SetEyeMaterial(material,(*eyes)[binding.eye]); break; }
+                }
+                if (mouth && mouth->valid)
+                {
+                    bool foundForward=false, foundIllum=false;
+                    IMaterialVar *forward=material->FindVar("$forward",&foundForward,false);
+                    IMaterialVar *illum=material->FindVar("$illumfactor",&foundIllum,false);
+                    if(foundForward && foundIllum) { forward->SetVecValue(mouth->forward.Base(),3); illum->SetFloatValue(mouth->illumination); }
                 }
                 std::vector<Studio44VertexDelta> deltas;
                 if ( flexData && flexWeights )
@@ -751,10 +760,23 @@ public:
         const bool haveFlex=cached && cached->flexValid && flexWeights &&
             Mdl44Flex::Evaluate(cached->flex,flexWeights,flexCount,flexResult);
         std::vector<Studio44EyeState> eyeStates;
+        Studio44MouthState mouthState;
         if(cached && cached->flexValid)
         {
             eyeStates.resize(cached->flex.eyes.size());
             Mdl44Binding::Matrix modelToWorld; std::memcpy(modelToWorld.m,transform,sizeof(modelToWorld.m));
+            if(!cached->flex.mouths.empty())
+            {
+                const Mdl44Flex::Mouth &mouth=cached->flex.mouths[0];
+                if(static_cast<size_t>(mouth.bone)<animatedBones.size())
+                {
+                    const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(modelToWorld,animatedBones[mouth.bone]);
+                    for(int axis=0;axis<3;++axis)
+                        mouthState.forward[axis]=-(world.m[axis][0]*mouth.forward[0]+world.m[axis][1]*mouth.forward[1]+world.m[axis][2]*mouth.forward[2]);
+                    mouthState.illumination=haveFlex ? clamp(flexResult[mouth.flexdesc],0.0f,1.0f) : 0.0f;
+                    mouthState.valid=true;
+                }
+            }
             // SE2007 applies the animated eye controls and clamps the target
             // in the space of the model's eyes attachment before projecting.
             Vector adjustedTarget;
@@ -823,7 +845,7 @@ public:
             }
         }
         if (!m_gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()),
-             cached && cached->flexValid ? &cached->flex : NULL, haveFlex ? &flexResult : NULL, &eyeStates)) return false;
+             cached && cached->flexValid ? &cached->flex : NULL, haveFlex ? &flexResult : NULL, &eyeStates, &mouthState)) return false;
         if (!m_logged)
         {
             Msg("MDL 44 G-Man preview: sequence '%s', clip '%s' (%u hardware, %u software groups)\n",sequence->label.c_str(),clip.name.c_str(),

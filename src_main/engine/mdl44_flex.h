@@ -16,8 +16,9 @@ namespace Mdl44Flex
     struct Flex { int desc, pair; float target[4]; std::vector<Delta> deltas; };
     struct Mesh { unsigned body, model, mesh, vertexCount; std::vector<Flex> flexes; };
     struct Eye { unsigned body, model; int bone; float origin[3], up[3], forward[3], zoffset, radius, irisScale; int upper[3], lower[3], upperLid, lowerLid; float upperTarget[3], lowerTarget[3]; bool nonFACS; };
+    struct Mouth { int bone, flexdesc; float forward[3]; };
     struct EyeMesh { unsigned body, model, mesh, eye; };
-    struct Data { std::vector<Eye> eyes; std::vector<EyeMesh> eyeMeshes; std::vector<std::string> descriptions; std::vector<Controller> controllers; std::vector<Rule> rules; std::vector<Mesh> meshes; };
+    struct Data { std::vector<Mouth> mouths; std::vector<Eye> eyes; std::vector<EyeMesh> eyeMeshes; std::vector<std::string> descriptions; std::vector<Controller> controllers; std::vector<Rule> rules; std::vector<Mesh> meshes; };
     inline int I32(const unsigned char *p,size_t at) { return Mdl44Skeleton::ReadI32(p,at); }
     inline float F32(const unsigned char *p,size_t at) { float v; std::memcpy(&v,p+at,4); return v; }
     inline bool Span(size_t at,size_t count,size_t stride,size_t len) { return at<=len && (!stride || count<=(len-at)/stride); }
@@ -32,14 +33,21 @@ namespace Mdl44Flex
         out.assign(a,z); return true;
     }
     inline bool Parse(const unsigned char *p,size_t size,Data &out) {
-        Studio44::studiohdr_t h; if(!Studio44::ReadHeader(p,size,280,h)) return false;
+        Studio44::studiohdr_t h; if(!Studio44::ReadHeader(p,size,304,h)) return false;
         const size_t len=static_cast<size_t>(h.length);
         if(h.numflexdesc<0 || h.numflexdesc>1024 || h.numflexcontrollers<0 || h.numflexcontrollers>256 ||
            h.numflexrules<0 || h.numflexrules>1024 || h.numbodyparts<0 || h.numbodyparts>256 ||
            h.flexdescindex<0 || h.flexcontrollerindex<0 || h.flexruleindex<0 || h.bodypartindex<0 ||
            !Span(h.flexdescindex,h.numflexdesc,4,len) || !Span(h.flexcontrollerindex,h.numflexcontrollers,20,len) ||
            !Span(h.flexruleindex,h.numflexrules,12,len) || !Span(h.bodypartindex,h.numbodyparts,16,len)) return false;
+        if(h.nummouths<0 || h.nummouths>32 || h.mouthindex<0 || !Span(h.mouthindex,h.nummouths,20,len)) return false;
         Data d;
+        for(int i=0;i<h.nummouths;++i) { size_t at=h.mouthindex+size_t(i)*20; Mouth m;
+            m.bone=I32(p,at); m.flexdesc=I32(p,at+16);
+            if(m.bone<0 || m.bone>=h.numbones || m.flexdesc<0 || m.flexdesc>=h.numflexdesc) return false;
+            for(int j=0;j<3;++j) { m.forward[j]=F32(p,at+4+j*4); if(!std::isfinite(m.forward[j])) return false; }
+            d.mouths.push_back(m);
+        }
         for(int i=0;i<h.numflexdesc;++i) { size_t at=h.flexdescindex+i*4; std::string n; if(!Name(p,len,at,I32(p,at),n)) return false; d.descriptions.push_back(n); }
         for(int i=0;i<h.numflexcontrollers;++i) { size_t at=h.flexcontrollerindex+i*20; Controller c;
             if(!Name(p,len,at,I32(p,at),c.type) || !Name(p,len,at,I32(p,at+4),c.name)) return false;
