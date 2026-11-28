@@ -801,7 +801,7 @@ bool CGame::CreateGameWindow( void )
 	h = GetSystemMetrics( SM_CYSCREEN );
 
 	// Create the window
-	HWND hwnd = CreateWindow( CLASSNAME, "Half-Life", style, 
+	HWND hwnd = CreateWindow( CLASSNAME, "Half-Life 2", style,
 		0, 0, w, h, NULL, NULL, m_hInstance, NULL );
 
 	g_Game.SetMainWindow( hwnd );
