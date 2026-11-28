@@ -915,6 +915,15 @@ static bool Mdl44ApplySequence(Mdl44CachedModel *cached, int sequence, float cyc
         &group.skeleton,&group.animations,&group.sequences,&group.masterBone};
     return Mdl44Pose::Accumulate(source,entry.index,clamp(cycle,0.0f,1.0f),clamp(weight,0.0f,1.0f),pose);
 }
+// SE2007 samples light in the reference space, then moves light positions
+// back into the model's world space before shading. Keep the cached world
+// lights untouched: they can be shared by other models.
+static void Mdl44RestoreLightPosition(LightDesc_t &light, const float *lightingOffset)
+{
+    if (!lightingOffset || light.m_Type == MATERIAL_LIGHT_DIRECTIONAL) return;
+    matrix3x4_t offset; std::memcpy(&offset[0][0],lightingOffset,sizeof(offset));
+    Vector restored; VectorITransform(light.m_Position,offset,restored); light.m_Position=restored;
+}
 static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
                                     int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
                                     const float *flexWeights, unsigned int flexCount, const float *lightingOffset)
@@ -967,6 +976,7 @@ static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, c
             materialSystemInterface->SetAmbientLight(0,0,0);g_pStudioRender->SetAmbientLightColors(light.r_boxcolor,light.totalboxcolor);
             LightDesc_t lights[MAXLOCALLIGHTS];int count=0;
             for(int i=0;i<light.numlights && count<MAXLOCALLIGHTS;++i) if(WorldLightToMaterialLight(light.locallight[i],lights[count])) {
+                Mdl44RestoreLightPosition(lights[count],lightingOffset);
                 int style=light.locallight[i]->style;float scale=(style>=0 && style<256) ? g_lightmapScale*d_lightstylevalue[style]/264.0f : 1.0f;
                 for(int j=0;j<3;++j)lights[count].m_Color[j]*=scale;++count;
             }
@@ -1121,6 +1131,7 @@ static bool Mdl44RigidEntityDraw(const char *name,const float *transform,unsigne
                 for(int i=0;i<state.numlights && count<MAXLOCALLIGHTS;++i)
                     if(WorldLightToMaterialLight(state.locallight[i],lights[count]))
                     {
+                        Mdl44RestoreLightPosition(lights[count],lightingOffset);
                         int style=state.locallight[i]->style;
                         float scale=(style>=0 && style<256) ? g_lightmapScale*d_lightstylevalue[style]/264.0f : 1.0f;
                         for(int c=0;c<3;++c) lights[count].m_Color[c]*=scale;
