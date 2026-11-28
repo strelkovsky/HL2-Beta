@@ -1510,6 +1510,12 @@ void CBaseEntity::PhysicsStep()
 
 void CBaseEntity::PhysicsStepRunTimestep( float timestep )
 {
+    // A parented NPC is carried in its parent's coordinate space. The old
+    // step solver treats the parent's motion as independent velocity and
+    // applies gravity through its floor. AI thinking still runs normally.
+    if ( GetMoveParent() && MyNPCPointer() )
+        return;
+
 	bool	wasonground;
 	bool	inwater;
 	bool	hitsound = false;

@@ -4426,7 +4426,7 @@ void CAI_BaseNPC::StartNPC ( void )
 	// Raise npc off the floor one unit, then drop to floor
 	if ( (GetMoveType() != MOVETYPE_FLY) && (GetMoveType() != MOVETYPE_FLYGRAVITY) &&
 		 !(CapabilitiesGet() & bits_CAP_MOVE_FLY) &&
-		 !HasSpawnFlags( SF_NPC_FALL_TO_GROUND ) )
+		 !HasSpawnFlags( SF_NPC_FALL_TO_GROUND ) && !GetMoveParent() )
 	{
 		Vector origin = GetLocalOrigin();
 
