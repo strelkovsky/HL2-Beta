@@ -13,7 +13,11 @@
 #include "mathlib.h"
 #include "globalstate.h"
 #include "script_intro.h"
+#include "vstdlib/icommandline.h"
 
+
+// Debug shortcut for repeated testing of the retail opening map.
+static ConVar sv_skip_gman_intro( "sv_skip_gman_intro", "0", 0, "Skip the G-Man intro on a new d1_trainstation_01 game." );
 
 const int SF_AUTO_FIREONCE		= 0x01;
 const int SF_AUTO_FIREONRELOAD	= 0x02;
@@ -111,7 +115,34 @@ void CLogicAuto::Think(void)
 		}
 		else if (gpGlobals->eLoadType == MapLoad_NewGame)
 		{
-			m_OnNewGame.FireOutput(NULL, this);
+	            bool skipIntro = false;
+            if ( !Q_stricmp( STRING(gpGlobals->mapname), "d1_trainstation_01" ) &&
+                 (sv_skip_gman_intro.GetBool() || CommandLine()->FindParm("-skip_gman_intro")) )
+            {
+                bool hasIntro = false, hasScene = false;
+                for ( const CEventAction *action = m_OnNewGame.GetFirstAction(); action; action = action->m_pNext )
+                {
+                    if (action->m_iTarget == NULL_STRING || action->m_iTargetInput == NULL_STRING || action->m_nTimesToFire == 0) continue;
+                    const char *target = STRING(action->m_iTarget), *input = STRING(action->m_iTargetInput);
+                    if (!Q_stricmp(target, "intro_version3") && !Q_stricmp(input, "Activate")) hasIntro = true;
+                    if (!Q_stricmp(target, "scene1_start") && !Q_stricmp(input, "Trigger")) hasScene = true;
+                }
+                skipIntro = hasIntro && hasScene && gEntList.FindEntityByName(NULL, "logic_start_train", NULL);
+            }
+            if (skipIntro)
+            {
+                variant_t empty;
+                g_EventQueue.AddEvent("intro_version3", "Activate", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("fog_gman", "TurnOff", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("fog_train", "TurnOn", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("logic_killme_1", "Trigger", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("logic_killme_2", "Trigger", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("logic_killme_3", "Trigger", empty, 0, NULL, this);
+                g_EventQueue.AddEvent("logic_start_train", "Trigger", empty, 0, NULL, this);
+                Msg("Skipping G-Man intro; starting train ride.\n");
+            }
+            else
+                m_OnNewGame.FireOutput(NULL, this);
 		}
 		else if (gpGlobals->eLoadType == MapLoad_LoadGame)
 		{
