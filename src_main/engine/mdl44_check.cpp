@@ -599,9 +599,91 @@ bool Mdl44ModelInfo::AttachmentTransform(const model_t *model, int attachment, f
     world=Mdl44Binding::Multiply(world,local); std::memcpy(output,world.m,sizeof(world.m)); return true;
 }
 
+// Apply the same SE2007 eye and mouth setup to every animated MDL 44 model.
+static void Studio44PrepareFace(Mdl44CachedModel *cached, const model_t *identity, const float *transform,
+    const std::vector<Mdl44Binding::Matrix> &animatedBones, const float *viewTarget, const float *flexWeights,
+    unsigned int flexCount, bool haveFlex, std::vector<float> &flexResult,
+    std::vector<Studio44EyeState> &eyeStates, Studio44MouthState &mouthState)
+{
+        if(cached && cached->flexValid)
+        {
+            eyeStates.resize(cached->flex.eyes.size());
+            Mdl44Binding::Matrix modelToWorld; std::memcpy(modelToWorld.m,transform,sizeof(modelToWorld.m));
+            if(!cached->flex.mouths.empty())
+            {
+                const Mdl44Flex::Mouth &mouth=cached->flex.mouths[0];
+                if(static_cast<size_t>(mouth.bone)<animatedBones.size())
+                {
+                    const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(modelToWorld,animatedBones[mouth.bone]);
+                    for(int axis=0;axis<3;++axis)
+                        mouthState.forward[axis]=-(world.m[axis][0]*mouth.forward[0]+world.m[axis][1]*mouth.forward[1]+world.m[axis][2]*mouth.forward[2]);
+                    mouthState.illumination=haveFlex ? clamp(flexResult[mouth.flexdesc],0.0f,1.0f) : 0.0f;
+                    mouthState.valid=true;
+                }
+            }
+            // SE2007 applies the animated eye controls and clamps the target
+            // in the space of the model's eyes attachment before projecting.
+            Vector adjustedTarget;
+            const float *eyeTarget=viewTarget;
+            if(viewTarget && (viewTarget[0]!=0 || viewTarget[1]!=0 || viewTarget[2]!=0))
+            {
+                const int attachment=s_Mdl44ModelInfo.FindAttachment(identity,"eyes"); size_t at; Mdl44GroupSource *source;
+                if(Mdl44AttachmentRecord(cached,attachment,at,source))
+                {
+                    const int bone=Mdl44Skeleton::ReadI32(source->mdl.data(),at+8);
+                    if(bone>=0 && static_cast<size_t>(bone)<animatedBones.size())
+                    {
+                        Mdl44Binding::Matrix attachmentLocal; std::memcpy(attachmentLocal.m,source->mdl.data()+at+12,sizeof(attachmentLocal.m));
+                        const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(Mdl44Binding::Multiply(modelToWorld,animatedBones[bone]),attachmentLocal);
+                        matrix3x4_t attachmentWorld; std::memcpy(&attachmentWorld[0][0],world.m,sizeof(world.m));
+                        Vector local; VectorITransform(Vector(viewTarget[0],viewTarget[1],viewTarget[2]),attachmentWorld,local);
+                        if(local.x<6) local.x=6;
+                        const float distance=VectorNormalize(local);
+                        QAngle eyeAngles(0,0,0);
+                        if(flexWeights) for(size_t i=0;i<cached->flex.controllers.size() && i<flexCount;++i)
+                        {
+                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_updown")) eyeAngles.x=flexWeights[i];
+                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_rightleft")) eyeAngles.y=flexWeights[i];
+                        }
+                        Vector deflection; AngleVectors(eyeAngles,&deflection); deflection.x=0;
+                        local+=deflection*(local.x*local.x); VectorNormalize(local);
+                        const float maxDeflection=0.866f;
+                        if(local.x<maxDeflection)
+                        {
+                            const float side=local.y*local.y+local.z*local.z;
+                            if(side>0) { const float scale=std::sqrt((1-maxDeflection*maxDeflection)/side); local.x=maxDeflection; local.y*=scale; local.z*=scale; }
+                            else local.Init(1,0,0);
+                        }
+                        local*=distance; VectorTransform(local,attachmentWorld,adjustedTarget); eyeTarget=adjustedTarget.Base();
+                    }
+                }
+            }
+            for(size_t i=0;i<eyeStates.size();++i)
+            {
+                const Mdl44Flex::Eye &eye=cached->flex.eyes[i];
+                eyeStates[i].valid=false;
+                if(eye.bone>=0 && static_cast<size_t>(eye.bone)<animatedBones.size())
+                {
+                    const Mdl44Binding::Matrix eyeBone=Mdl44Binding::Multiply(modelToWorld,animatedBones[eye.bone]);
+                    if(Studio44EyeProjection(eye,eyeBone,eyeTarget,eyeStates[i]) && haveFlex)
+                    {
+                        float localUp[3]={}, localForward[3]={};
+                        for(int j=0;j<3;++j) for(int r=0;r<3;++r)
+                        {
+                            localUp[j]+=eyeBone.m[r][j]*eyeStates[i].worldUp[r];
+                            localForward[j]+=eyeBone.m[r][j]*eyeStates[i].worldForward[r];
+                        }
+                        Mdl44Flex::Eyelids(eye,localUp,localForward,flexResult);
+                    }
+                }
+            }
+        }
+
+}
+
 static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
                                     int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
-                                    const float *flexWeights, unsigned int flexCount, const float *lightingOffset);
+                                    const float *flexWeights, unsigned int flexCount, const float *viewTarget, const float *lightingOffset);
 static void Mdl44AnimatedEntityShutdown();
 static void Mdl44AnimatedEntityReleaseGpu();
 static bool Mdl44RigidEntityDraw(const char *name, const float *transform, unsigned int skin, const float *lightingOffset);
@@ -631,7 +713,7 @@ public:
     {
         if (!name || !transform) return false;
         if (_stricmp(name,"models/gman_high.mdl"))
-            return Mdl44AnimatedEntityDraw(identity,name,transform,skin,sequenceIndex,cycle,layers,layerCount,flexWeights,flexCount,lightingOffset) ||
+            return Mdl44AnimatedEntityDraw(identity,name,transform,skin,sequenceIndex,cycle,layers,layerCount,flexWeights,flexCount,viewTarget,lightingOffset) ||
                    Mdl44RigidEntityDraw(name,transform,skin,lightingOffset);
         if (!m_attempted)
         {
@@ -761,79 +843,7 @@ public:
             Mdl44Flex::Evaluate(cached->flex,flexWeights,flexCount,flexResult);
         std::vector<Studio44EyeState> eyeStates;
         Studio44MouthState mouthState;
-        if(cached && cached->flexValid)
-        {
-            eyeStates.resize(cached->flex.eyes.size());
-            Mdl44Binding::Matrix modelToWorld; std::memcpy(modelToWorld.m,transform,sizeof(modelToWorld.m));
-            if(!cached->flex.mouths.empty())
-            {
-                const Mdl44Flex::Mouth &mouth=cached->flex.mouths[0];
-                if(static_cast<size_t>(mouth.bone)<animatedBones.size())
-                {
-                    const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(modelToWorld,animatedBones[mouth.bone]);
-                    for(int axis=0;axis<3;++axis)
-                        mouthState.forward[axis]=-(world.m[axis][0]*mouth.forward[0]+world.m[axis][1]*mouth.forward[1]+world.m[axis][2]*mouth.forward[2]);
-                    mouthState.illumination=haveFlex ? clamp(flexResult[mouth.flexdesc],0.0f,1.0f) : 0.0f;
-                    mouthState.valid=true;
-                }
-            }
-            // SE2007 applies the animated eye controls and clamps the target
-            // in the space of the model's eyes attachment before projecting.
-            Vector adjustedTarget;
-            const float *eyeTarget=viewTarget;
-            if(viewTarget && (viewTarget[0]!=0 || viewTarget[1]!=0 || viewTarget[2]!=0))
-            {
-                const int attachment=s_Mdl44ModelInfo.FindAttachment(identity,"eyes"); size_t at; Mdl44GroupSource *source;
-                if(Mdl44AttachmentRecord(cached,attachment,at,source))
-                {
-                    const int bone=Mdl44Skeleton::ReadI32(source->mdl.data(),at+8);
-                    if(bone>=0 && static_cast<size_t>(bone)<animatedBones.size())
-                    {
-                        Mdl44Binding::Matrix attachmentLocal; std::memcpy(attachmentLocal.m,source->mdl.data()+at+12,sizeof(attachmentLocal.m));
-                        const Mdl44Binding::Matrix world=Mdl44Binding::Multiply(Mdl44Binding::Multiply(modelToWorld,animatedBones[bone]),attachmentLocal);
-                        matrix3x4_t attachmentWorld; std::memcpy(&attachmentWorld[0][0],world.m,sizeof(world.m));
-                        Vector local; VectorITransform(Vector(viewTarget[0],viewTarget[1],viewTarget[2]),attachmentWorld,local);
-                        if(local.x<6) local.x=6;
-                        const float distance=VectorNormalize(local);
-                        QAngle eyeAngles(0,0,0);
-                        if(flexWeights) for(size_t i=0;i<cached->flex.controllers.size() && i<flexCount;++i)
-                        {
-                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_updown")) eyeAngles.x=flexWeights[i];
-                            if(!_stricmp(cached->flex.controllers[i].name.c_str(),"eyes_rightleft")) eyeAngles.y=flexWeights[i];
-                        }
-                        Vector deflection; AngleVectors(eyeAngles,&deflection); deflection.x=0;
-                        local+=deflection*(local.x*local.x); VectorNormalize(local);
-                        const float maxDeflection=0.866f;
-                        if(local.x<maxDeflection)
-                        {
-                            const float side=local.y*local.y+local.z*local.z;
-                            if(side>0) { const float scale=std::sqrt((1-maxDeflection*maxDeflection)/side); local.x=maxDeflection; local.y*=scale; local.z*=scale; }
-                            else local.Init(1,0,0);
-                        }
-                        local*=distance; VectorTransform(local,attachmentWorld,adjustedTarget); eyeTarget=adjustedTarget.Base();
-                    }
-                }
-            }
-            for(size_t i=0;i<eyeStates.size();++i)
-            {
-                const Mdl44Flex::Eye &eye=cached->flex.eyes[i];
-                eyeStates[i].valid=false;
-                if(eye.bone>=0 && static_cast<size_t>(eye.bone)<animatedBones.size())
-                {
-                    const Mdl44Binding::Matrix eyeBone=Mdl44Binding::Multiply(modelToWorld,animatedBones[eye.bone]);
-                    if(Studio44EyeProjection(eye,eyeBone,eyeTarget,eyeStates[i]) && haveFlex)
-                    {
-                        float localUp[3]={}, localForward[3]={};
-                        for(int j=0;j<3;++j) for(int r=0;r<3;++r)
-                        {
-                            localUp[j]+=eyeBone.m[r][j]*eyeStates[i].worldUp[r];
-                            localForward[j]+=eyeBone.m[r][j]*eyeStates[i].worldForward[r];
-                        }
-                        Mdl44Flex::Eyelids(eye,localUp,localForward,flexResult);
-                    }
-                }
-            }
-        }
+        Studio44PrepareFace(cached,identity,transform,animatedBones,viewTarget,flexWeights,flexCount,haveFlex,flexResult,eyeStates,mouthState);
         if (r_mdl44_eye_debug.GetBool() && !eyeStates.empty())
         {
             static float nextEyeLog=0;
@@ -926,7 +936,7 @@ static void Mdl44RestoreLightPosition(LightDesc_t &light, const float *lightingO
 }
 static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, const float *transform, unsigned int skin,
                                     int sequence, float cycle, const Studio44Layer *layers, unsigned int layerCount,
-                                    const float *flexWeights, unsigned int flexCount, const float *lightingOffset)
+                                    const float *flexWeights, unsigned int flexCount, const float *viewTarget, const float *lightingOffset)
 {
     Mdl44CachedModel *cached=FindCached44(identity);
     if(!cached || cached->virtualModel.Groups().empty()) return false;
@@ -959,8 +969,8 @@ static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, c
     if(!animated && !entry->poseWarning) { Warning("MDL 44 animated entity: unsupported sequence %d for %s; using bind pose\n",sequence,name); entry->poseWarning=true; }
     if(layers && layerCount<=8) for(unsigned int i=0;i<layerCount;++i)
         Mdl44ApplySequence(cached,layers[i].sequence,layers[i].cycle,layers[i].weight,pose);
-    std::vector<Mdl44Binding::Matrix> matrices;
-    if(!Mdl44Binding::BuildSkinMatrices(skeleton,pose,matrices) || matrices.empty()) return false;
+    std::vector<Mdl44Binding::Matrix> matrices, animatedBones;
+    if(!Mdl44Binding::BuildSkinMatrices(skeleton,pose,matrices,&animatedBones) || matrices.empty()) return false;
     if(g_pStudioRender && materialSystemInterface)
     {
         Vector position;
@@ -985,8 +995,14 @@ static bool Mdl44AnimatedEntityDraw(const model_t *identity, const char *name, c
     }
     std::vector<float> flex;
     bool hasFlex=cached->flexValid && flexWeights && Mdl44Flex::Evaluate(cached->flex,flexWeights,flexCount,flex);
+    std::vector<Studio44EyeState> eyeStates; Studio44MouthState mouthState;
+    Studio44PrepareFace(cached,identity,transform,animatedBones,viewTarget,flexWeights,flexCount,hasFlex,flex,eyeStates,mouthState);
+    if(r_mdl44_eye_debug.GetBool() && !eyeStates.empty()) {
+        static double nextEyeLog=0; double now=Plat_FloatTime();
+        if(now>=nextEyeLog) { Msg("MDL 44 entity eyes: %s, %u eyes, first valid %d\n",name,static_cast<unsigned>(eyeStates.size()),eyeStates[0].valid?1:0); nextEyeLog=now+2; }
+    }
     if(!entry->gpu->DrawSkinned(transform,skin,&matrices[0].m[0][0],static_cast<unsigned>(matrices.size()),
-        hasFlex ? &cached->flex : NULL,hasFlex ? &flex : NULL)) return false;
+        cached->flexValid ? &cached->flex : NULL,hasFlex ? &flex : NULL,&eyeStates,&mouthState)) return false;
     if(!entry->logged) { Msg("MDL 44 animated entity: %s, sequence %d%s\n",name,sequence,animated?"":" (bind pose)");entry->logged=true; }
     return true;
 }
